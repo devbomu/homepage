@@ -21,7 +21,7 @@
     "daisyui": "^5.7.43",
     "sass-embedded": "^1.104.1",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "wrangler": "^4.136.2"
   }
 }
