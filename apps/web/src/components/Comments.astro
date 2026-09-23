@@ -1,16 +1,6 @@
 ---
-import { formatRelative, toIso } from '@lib/format';
-
-interface CommentNode {
-  id: number;
-  parentId: number | null;
-  authorName: string;
-  authorWebsite: string | null;
-  body: string;
-  isOwner: boolean;
-  createdAt: number;
-  replies: CommentNode[];
-}
+import CommentItem from '@components/CommentItem.astro';
+import type { CommentNode } from '@lib/api';
 
 interface Props {
   slug: string;
@@ -35,48 +25,7 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
 
   <ol class="space-y-4">
     {comments.map((comment) => (
-      <li class="frost-card p-4">
-        <div class="flex items-baseline gap-2">
-          <span class="font-semibold">
-            {comment.authorWebsite ? (
-              <a
-                href={comment.authorWebsite}
-                class="link link-hover"
-                rel="nofollow noopener noreferrer"
-                target="_blank"
-              >
-                {comment.authorName}
-              </a>
-            ) : (
-              comment.authorName
-            )}
-          </span>
-          {comment.isOwner && <span class="badge badge-primary badge-xs">작성자</span>}
-          <time class="text-base-content/50 text-xs" datetime={toIso(comment.createdAt)}>
-            {formatRelative(comment.createdAt)}
-          </time>
-        </div>
-
-        <!-- 댓글은 마크다운으로 렌더하지 않는다. 평문으로만 다뤄야 안전하다. -->
-        <p class="mt-2 text-sm whitespace-pre-wrap">{comment.body}</p>
-
-        {comment.replies.length > 0 && (
-          <ol class="border-base-300 mt-4 space-y-3 border-l-2 pl-4">
-            {comment.replies.map((reply) => (
-              <li>
-                <div class="flex items-baseline gap-2">
-                  <span class="text-sm font-semibold">{reply.authorName}</span>
-                  {reply.isOwner && <span class="badge badge-primary badge-xs">작성자</span>}
-                  <time class="text-base-content/50 text-xs" datetime={toIso(reply.createdAt)}>
-                    {formatRelative(reply.createdAt)}
-                  </time>
-                </div>
-                <p class="mt-1 text-sm whitespace-pre-wrap">{reply.body}</p>
-              </li>
-            ))}
-          </ol>
-        )}
-      </li>
+      <CommentItem comment={comment} allowComments={allowComments} />
     ))}
   </ol>
 
@@ -87,6 +36,14 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
       data-api={apiUrl}
       class="frost-card mt-6 space-y-3 p-5"
     >
+      {/* 답글일 때만 보인다. JS 가 대상 댓글 아래로 폼을 옮긴다. */}
+      <div data-reply-banner class="alert alert-info hidden py-2 text-sm">
+        <span data-reply-label></span>
+        <button type="button" data-reply-cancel class="btn btn-ghost btn-xs">
+          취소
+        </button>
+      </div>
+
       <div class="grid gap-3 sm:grid-cols-2">
         <div class="form-control">
           <label for="comment-author" class="label-text mb-1 block text-sm">
@@ -144,6 +101,14 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
         ></textarea>
       </div>
 
+      <label class="label w-fit cursor-pointer justify-start gap-2">
+        <input type="checkbox" name="isSecret" class="checkbox checkbox-sm" data-secret-toggle />
+        <span class="label-text text-sm">비밀 댓글</span>
+        <span data-secret-note class="text-base-content/50 text-xs">
+          내용은 블로그 주인만 봅니다. 답장을 받으려면 이메일을 남겨 주세요.
+        </span>
+      </label>
+
       {turnstileKey && <div class="cf-turnstile" data-sitekey={turnstileKey}></div>}
 
       <p data-comment-message role="status" class="hidden text-sm"></p>
@@ -176,11 +141,49 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
     const slug = encodeURIComponent(form.dataset.slug!);
     const message = form.querySelector<HTMLElement>('[data-comment-message]')!;
     const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    const banner = form.querySelector<HTMLElement>('[data-reply-banner]')!;
+    const bannerLabel = form.querySelector<HTMLElement>('[data-reply-label]')!;
+    const secretToggle = form.querySelector<HTMLInputElement>('[data-secret-toggle]')!;
+    const secretNote = form.querySelector<HTMLElement>('[data-secret-note]')!;
+    const formHome = form.parentElement!;
+
+    let parentId: number | null = null;
 
     const show = (text: string, kind: 'ok' | 'error') => {
       message.textContent = text;
       message.className = `text-sm ${kind === 'ok' ? 'text-success' : 'text-error'}`;
     };
+
+    const resetReply = () => {
+      parentId = null;
+      banner.classList.add('hidden');
+      secretToggle.disabled = false;
+      secretNote.textContent = '내용은 블로그 주인만 봅니다. 답장을 받으려면 이메일을 남겨 주세요.';
+      formHome.appendChild(form);
+    };
+
+    // 답글 버튼: 폼을 대상 댓글 아래로 옮긴다.
+    // 댓글마다 폼을 두지 않아 마크업이 가볍고, 입력값도 유지된다.
+    for (const button of document.querySelectorAll<HTMLElement>('[data-reply-to]')) {
+      button.addEventListener('click', () => {
+        parentId = Number(button.dataset.replyTo);
+        banner.classList.remove('hidden');
+        bannerLabel.textContent = '이 댓글에 답글을 답니다';
+
+        // 비밀 댓글의 답글은 서버가 강제로 비밀로 만든다.
+        // 선택지를 열어두면 공개로 달 수 있다고 오해하게 된다.
+        if (button.dataset.replySecret === 'true') {
+          secretToggle.checked = true;
+          secretToggle.disabled = true;
+          secretNote.textContent = '비밀 댓글의 답글은 항상 비밀입니다.';
+        }
+
+        button.closest('li')?.appendChild(form);
+        form.querySelector<HTMLTextAreaElement>('#comment-body')?.focus();
+      });
+    }
+
+    form.querySelector('[data-reply-cancel]')?.addEventListener('click', resetReply);
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -191,7 +194,9 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
       const payload: Record<string, unknown> = {
         authorName: String(data.get('authorName') ?? '').trim(),
         body: String(data.get('body') ?? '').trim(),
+        isSecret: secretToggle.checked,
       };
+      if (parentId != null) payload.parentId = parentId;
 
       // 빈 문자열을 보내면 서버의 이메일 형식 검사에 걸린다. 아예 빼서 보낸다.
       const email = String(data.get('authorEmail') ?? '').trim();
@@ -211,6 +216,7 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
         if (response.ok) {
           show(body?.data?.message ?? '댓글이 등록되었습니다.', 'ok');
           form.reset();
+          resetReply();
           window.turnstile?.reset();
         } else {
           show(body?.error?.message ?? '등록에 실패했습니다.', 'error');

@@ -48,6 +48,8 @@ export interface CommentNode {
   authorWebsite: string | null;
   body: string;
   isOwner: boolean;
+  /** 비밀 댓글이면 authorName 과 body 가 비어 있다. 잠금 표시만 렌더한다. */
+  isSecret: boolean;
   createdAt: number;
   replies: CommentNode[];
 }

@@ -36,3 +36,8 @@ curl -s -X POST "$BASE/v1/posts/hello-world/comments" \
   -H "User-Agent: e2e-seed-$RANDOM" \
   -d '{"authorName":"방문자","authorEmail":"visitor@example.com","body":"모더레이션 테스트용 댓글"}' >/dev/null
 python3 "$(dirname "${BASH_SOURCE[0]}")/admin_api_test.py"
+
+echo
+echo "▶ 비밀 댓글 + 대댓글"
+reseed
+python3 "$(dirname "${BASH_SOURCE[0]}")/secret_comments_test.py"

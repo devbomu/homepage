@@ -257,6 +257,12 @@ export const comments = sqliteTable(
     status: text('status', { enum: COMMENT_STATUSES }).notNull().default('pending'),
     isOwner: integer('is_owner', { mode: 'boolean' }).notNull().default(false),
 
+    /**
+     * 비밀 댓글. 공개 화면에는 잠금 표시만 나가고 본문은 관리자만 본다.
+     * 비밀 댓글의 답글은 서버가 강제로 비밀로 만든다 — 답글이 원문 맥락을 흘리기 때문이다.
+     */
+    isSecret: integer('is_secret', { mode: 'boolean' }).notNull().default(false),
+
     visitorHash: text('visitor_hash'),
     userAgent: text('user_agent'),
 

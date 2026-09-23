@@ -96,6 +96,10 @@ export interface ModerationComment {
   authorWebsite: string | null;
   body: string;
   status: CommentStatus;
+  /** 비밀 댓글. 공개 화면에는 잠금 표시만 나간다. 여기서만 본문을 볼 수 있다. */
+  isSecret: boolean;
+  /** 관리자가 단 답글. */
+  isOwner: boolean;
   createdAt: number;
 }
 

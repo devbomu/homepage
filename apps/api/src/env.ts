@@ -24,6 +24,8 @@ export interface Bindings {
   CF_ACCESS_TEAM_DOMAIN: string;
   CF_ACCESS_AUD: string;
   COMMENTS_REQUIRE_APPROVAL: string;
+  /** 관리자 답글에 표시할 이름. 비우면 '작성자'. */
+  OWNER_DISPLAY_NAME?: string;
   /** 추가 허용 오리진 (쉼표 구분). 보통 비어 있다. */
   ALLOWED_ORIGINS?: string;
 

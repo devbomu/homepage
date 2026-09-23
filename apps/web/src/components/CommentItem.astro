@@ -1,0 +1,90 @@
+---
+import { formatRelative, toIso } from '@lib/format';
+import type { CommentNode } from '@lib/api';
+
+interface Props {
+  comment: CommentNode;
+  /** 0 = 최상위. 이 깊이에 도달하면 답글 버튼을 숨긴다 (서버 제한과 맞춘다). */
+  depth?: number;
+  allowComments: boolean;
+}
+
+const { comment, depth = 0, allowComments } = Astro.props;
+const MAX_REPLY_DEPTH = 2;
+
+/*
+ * 비밀 댓글에는 방문자용 답글 버튼을 달지 않는다.
+ * 읽을 수 없는 글에 답글을 달게 하는 것은 말이 안 되고,
+ * 답글이 달리면 서버가 그것까지 비밀로 만들어 아무도 못 읽는 가지가 생긴다.
+ * 비밀 댓글의 답글은 관리자만, 관리자 화면에서 단다.
+ */
+const canReply = allowComments && !comment.isSecret && depth < MAX_REPLY_DEPTH;
+
+/** 비밀 댓글에 관리자 답글이 달렸는지. 작성자에게 "답을 받았다"는 것만 알린다. */
+const answered = comment.isSecret && comment.replies.some((reply) => reply.isOwner);
+
+/*
+ * 비밀 댓글은 본문과 작성자를 서버가 아예 내려주지 않는다.
+ * 글 페이지가 엣지에 캐시되므로, 방문자별로 다르게 렌더하면
+ * 한 사람의 비밀 댓글이 다음 방문자에게 그대로 나간다.
+ *
+ * 댓글 본문은 마크다운으로 렌더하지 않는다. 평문으로만 다뤄야 안전하다.
+ */
+---
+
+<li class:list={[depth === 0 && 'frost-card p-4']}>
+  {comment.isSecret ? (
+    <div class="text-base-content/50 flex items-center gap-2 text-sm">
+      <span aria-hidden="true">🔒</span>
+      <span>{comment.isOwner ? '작성자의 비밀 답글입니다' : '비밀 댓글입니다'}</span>
+      {answered && <span class="badge badge-success badge-xs">답변 완료</span>}
+      <time class="text-xs" datetime={toIso(comment.createdAt)}>
+        {formatRelative(comment.createdAt)}
+      </time>
+    </div>
+  ) : (
+    <>
+      <div class="flex flex-wrap items-baseline gap-2">
+        <span class="font-semibold">
+          {comment.authorWebsite ? (
+            <a
+              href={comment.authorWebsite}
+              class="link link-hover"
+              rel="nofollow noopener noreferrer"
+              target="_blank"
+            >
+              {comment.authorName}
+            </a>
+          ) : (
+            comment.authorName
+          )}
+        </span>
+        {comment.isOwner && <span class="badge badge-primary badge-xs">작성자</span>}
+        <time class="text-base-content/50 text-xs" datetime={toIso(comment.createdAt)}>
+          {formatRelative(comment.createdAt)}
+        </time>
+      </div>
+
+      <p class="mt-2 text-sm whitespace-pre-wrap">{comment.body}</p>
+    </>
+  )}
+
+  {canReply && (
+    <button
+      type="button"
+      class="btn btn-ghost btn-xs mt-2 px-1"
+      data-reply-to={comment.id}
+      data-reply-secret={comment.isSecret ? 'true' : 'false'}
+    >
+      답글
+    </button>
+  )}
+
+  {comment.replies.length > 0 && (
+    <ol class="border-base-300 mt-3 space-y-3 border-l-2 pl-4">
+      {comment.replies.map((reply) => (
+        <Astro.self comment={reply} depth={depth + 1} allowComments={allowComments} />
+      ))}
+    </ol>
+  )}
+</li>

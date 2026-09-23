@@ -92,6 +92,11 @@ const createCommentSchema = z.object({
   authorWebsite: z.string().trim().url('주소 형식이 올바르지 않습니다.').max(500).nullish(),
   body: z.string().trim().min(1, '내용을 입력해 주세요.').max(5000),
   parentId: z.number().int().positive().nullish(),
+  /**
+   * 비밀 댓글. 공개 화면에는 잠금 표시만 나가고 본문은 관리자만 본다.
+   * 비밀 댓글에 다는 답글은 서버가 강제로 비밀로 만든다 (queries/comments.ts).
+   */
+  isSecret: z.boolean().default(false),
   turnstileToken: z.string().nullish(),
 });
 
@@ -142,6 +147,7 @@ publicEngagement.post(
       body: input.body,
       visitorHash,
       userAgent: c.req.header('User-Agent') ?? null,
+      isSecret: input.isSecret,
       autoApprove: !commentsRequireApproval(c.env),
     });
 
@@ -151,8 +157,12 @@ publicEngagement.post(
           id: comment.id,
           status: comment.status,
           // 승인 대기면 화면에 바로 안 보이므로 그 사실을 알려준다.
-          message:
-            comment.status === 'approved'
+          isSecret: comment.isSecret,
+          message: comment.isSecret
+            ? comment.status === 'approved'
+              ? '비밀 댓글이 등록되었습니다. 작성자만 볼 수 있습니다.'
+              : '비밀 댓글이 등록되었습니다. 작성자만 볼 수 있습니다.'
+            : comment.status === 'approved'
               ? '댓글이 등록되었습니다.'
               : '댓글이 등록되었습니다. 확인 후 공개됩니다.',
         },

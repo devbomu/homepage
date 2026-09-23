@@ -15,6 +15,8 @@ export interface PublicComment {
   authorWebsite: string | null;
   body: string;
   isOwner: boolean;
+  /** 비밀 댓글이면 authorName 과 body 가 비어 있다. 잠금 표시만 렌더한다. */
+  isSecret: boolean;
   createdAt: number;
   replies: PublicComment[];
 }
@@ -36,6 +38,7 @@ export async function listApprovedComments(db: Db, postId: number): Promise<Publ
       authorWebsite: comments.authorWebsite,
       body: comments.body,
       isOwner: comments.isOwner,
+      isSecret: comments.isSecret,
       createdAt: comments.createdAt,
     })
     .from(comments)
@@ -45,7 +48,17 @@ export async function listApprovedComments(db: Db, postId: number): Promise<Publ
     .orderBy(asc(comments.createdAt));
 
   const nodes = new Map<number, PublicComment>();
-  for (const row of rows) nodes.set(row.id, { ...row, replies: [] });
+  for (const row of rows) {
+    // 비밀 댓글은 존재만 알리고 내용을 비운다.
+    // 여기서 비우지 않으면 글 페이지가 엣지에 캐시될 때 본문이 통째로 새어나간다.
+    nodes.set(row.id, {
+      ...row,
+      authorName: row.isSecret ? '' : row.authorName,
+      authorWebsite: row.isSecret ? null : row.authorWebsite,
+      body: row.isSecret ? '' : row.body,
+      replies: [],
+    });
+  }
 
   const roots: PublicComment[] = [];
   for (const node of nodes.values()) {
@@ -67,9 +80,15 @@ export interface CreateCommentInput {
   visitorHash: string;
   userAgent: string | null;
   autoApprove: boolean;
+  isSecret: boolean;
+  /** 관리자(주인)가 다는 답글인지. 배지 표시에 쓴다. */
+  isOwner?: boolean;
 }
 
 export async function createComment(db: Db, input: CreateCommentInput) {
+  // 부모가 비밀이면 아래에서 true 로 덮어쓴다.
+  let isSecret = input.isSecret;
+
   const [post] = await db
     .select({ id: posts.id, allowComments: posts.allowComments })
     .from(posts)
@@ -86,6 +105,7 @@ export async function createComment(db: Db, input: CreateCommentInput) {
         postId: comments.postId,
         parentId: comments.parentId,
         status: comments.status,
+        isSecret: comments.isSecret,
       })
       .from(comments)
       .where(and(eq(comments.id, input.parentId), isNull(comments.deletedAt)))
@@ -102,6 +122,10 @@ export async function createComment(db: Db, input: CreateCommentInput) {
     if (depth >= MAX_REPLY_DEPTH) {
       throw ApiError.unprocessable('답글은 이 단계까지만 달 수 있습니다.');
     }
+
+    // 비밀 댓글의 답글은 무조건 비밀이다. 공개로 두면 답글이 원문의 맥락을
+    // 흘린다 — "네, 그 부분은 ... 입니다" 만으로도 질문이 짐작된다.
+    if (parent.isSecret) isSecret = true;
   }
 
   const [row] = await db
@@ -115,9 +139,16 @@ export async function createComment(db: Db, input: CreateCommentInput) {
       body: input.body,
       visitorHash: input.visitorHash,
       userAgent: input.userAgent,
+      isSecret,
+      isOwner: input.isOwner ?? false,
       status: input.autoApprove ? 'approved' : 'pending',
     })
-    .returning({ id: comments.id, status: comments.status, createdAt: comments.createdAt });
+    .returning({
+      id: comments.id,
+      status: comments.status,
+      isSecret: comments.isSecret,
+      createdAt: comments.createdAt,
+    });
 
   return row!;
 }
@@ -200,6 +231,8 @@ export async function listCommentsForModeration(
       authorWebsite: comments.authorWebsite,
       body: comments.body,
       status: comments.status,
+      isSecret: comments.isSecret,
+      isOwner: comments.isOwner,
       createdAt: comments.createdAt,
     })
     .from(comments)

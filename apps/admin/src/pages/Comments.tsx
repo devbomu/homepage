@@ -2,7 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { adminApi } from '../lib/api';
-import { COMMENT_STATUSES, COMMENT_STATUS_LABEL, type CommentStatus } from '../lib/types';
+import {
+  COMMENT_STATUSES,
+  COMMENT_STATUS_LABEL,
+  type CommentStatus,
+  type ModerationComment,
+} from '../lib/types';
 import { Card, EmptyState, ErrorNotice, formatDate, Loading, PageHeader } from '../components/ui';
 
 const BADGE: Record<CommentStatus, string> = {
@@ -15,6 +20,9 @@ const BADGE: Record<CommentStatus, string> = {
 export default function Comments() {
   // 기본은 대기 큐다. 관리자가 여기서 할 일이 그것이기 때문이다.
   const [status, setStatus] = useState<CommentStatus | ''>('pending');
+  // 답글 입력창은 한 번에 하나만 연다. 값은 댓글 id 다.
+  const [replyTo, setReplyTo] = useState<number | null>(null);
+  const [replyBody, setReplyBody] = useState('');
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery({
@@ -36,6 +44,15 @@ export default function Comments() {
   const remove = useMutation({
     mutationFn: (id: number) => adminApi.comments.remove(id),
     onSuccess: invalidate,
+  });
+
+  const reply = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: string }) => adminApi.comments.reply(id, body),
+    onSuccess: () => {
+      setReplyTo(null);
+      setReplyBody('');
+      invalidate();
+    },
   });
 
   return (
@@ -60,7 +77,7 @@ export default function Comments() {
         ))}
       </div>
 
-      <ErrorNotice error={error ?? setStatusMutation.error ?? remove.error} />
+      <ErrorNotice error={error ?? setStatusMutation.error ?? remove.error ?? reply.error} />
 
       {isLoading ? (
         <Loading />
@@ -82,8 +99,18 @@ export default function Comments() {
                     {formatDate(comment.createdAt)}
                   </span>
                   {comment.parentId && <span className="badge badge-ghost badge-sm">답글</span>}
+                  {comment.isOwner && <span className="badge badge-primary badge-sm">내 답글</span>}
+                  {comment.isSecret && (
+                    <span className="badge badge-neutral badge-sm gap-1">
+                      <span aria-hidden="true">🔒</span> 비밀
+                    </span>
+                  )}
                 </div>
 
+                {/*
+                  비밀 댓글의 본문은 이 화면에만 나온다.
+                  공개 API 는 authorName 과 body 를 빈 문자열로 비워 내려보낸다.
+                */}
                 <p className="text-sm whitespace-pre-wrap">{comment.body}</p>
 
                 <div className="text-base-content/50 flex flex-wrap gap-x-4 gap-y-1 text-xs">
@@ -130,6 +157,21 @@ export default function Comments() {
                       숨기기
                     </button>
                   )}
+                  {/*
+                    답글은 승인된 댓글에만 달 수 있다. 대기 중인 댓글에 답글을 달면
+                    부모가 공개 목록에 없어서 답글만 최상위로 떠오른다.
+                  */}
+                  {comment.status === 'approved' && (
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => {
+                        setReplyTo(replyTo === comment.id ? null : comment.id);
+                        setReplyBody('');
+                      }}
+                    >
+                      답글
+                    </button>
+                  )}
                   <button
                     className="btn btn-ghost btn-xs text-error ml-auto"
                     onClick={() => {
@@ -140,11 +182,78 @@ export default function Comments() {
                     삭제
                   </button>
                 </div>
+
+                {replyTo === comment.id && (
+                  <ReplyBox
+                    comment={comment}
+                    value={replyBody}
+                    onChange={setReplyBody}
+                    pending={reply.isPending}
+                    onCancel={() => setReplyTo(null)}
+                    onSubmit={() => reply.mutate({ id: comment.id, body: replyBody.trim() })}
+                  />
+                )}
               </Card>
             </li>
           ))}
         </ul>
       )}
     </>
+  );
+}
+
+function ReplyBox({
+  comment,
+  value,
+  onChange,
+  pending,
+  onCancel,
+  onSubmit,
+}: {
+  comment: ModerationComment;
+  value: string;
+  onChange: (next: string) => void;
+  pending: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  const inputId = `reply-${comment.id}`;
+
+  return (
+    <div className="border-base-300 space-y-2 border-t pt-3">
+      <label htmlFor={inputId} className="label-text text-sm">
+        답글 — 승인 없이 바로 공개됩니다.
+      </label>
+      {/*
+        비밀 댓글의 답글은 서버가 강제로 비밀로 만든다. 선택지로 두지 않는 이유는
+        답글 한 줄만으로도 원래 질문이 짐작되기 때문이다.
+      */}
+      {comment.isSecret && (
+        <p className="text-base-content/60 text-xs">
+          🔒 비밀 댓글의 답글이라 이 답글도 비밀로 등록됩니다. 작성자와 관리자만 봅니다.
+        </p>
+      )}
+      <textarea
+        id={inputId}
+        className="textarea textarea-bordered w-full text-sm"
+        rows={3}
+        maxLength={5000}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        autoFocus
+      />
+      <div className="flex justify-end gap-2">
+        <button className="btn btn-ghost btn-xs" onClick={onCancel} disabled={pending}>
+          취소
+        </button>
+        <button
+          className="btn btn-primary btn-xs"
+          onClick={onSubmit}
+          disabled={pending || value.trim().length === 0}
+        >
+          답글 등록
+        </button>
+      </div>
+    </div>
   );
 }
