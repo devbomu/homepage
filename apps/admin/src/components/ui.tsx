@@ -81,12 +81,14 @@ const LABELABLE = new Set(['input', 'textarea', 'select']);
 /**
  * 라벨 + 컨트롤 묶음.
  *
- * 라벨로 감싸기만 하면(암묵적 연결) 스크린리더가 이름을 못 읽는 경우가 있어,
- * 컨트롤에 id 를 심고 htmlFor 로 명시적으로 잇는다.
+ * 컨트롤에 id 를 심고 htmlFor 로 명시적으로 잇는다. 라벨로 감싸기만 해서는
+ * 스크린리더가 이름을 못 읽는 경우가 있기 때문이다.
  * 힌트가 있으면 aria-describedby 로 함께 읽히게 한다.
  *
- * 자식이 폼 컨트롤이 아니면(예: 태그 버튼 묶음) 라벨 대신 group 으로 묶는다.
- * htmlFor 가 div 를 가리키는 것은 유효하지 않기 때문이다.
+ * 자식은 여럿이어도 된다. 예전에는 Children.only 를 썼는데,
+ * 검증 메시지 같은 걸 하나 더 넣는 순간 런타임에 화면 전체가 죽었다
+ * (타입 검사도 빌드도 잡지 못한다). 이제 자식 중 첫 번째 폼 컨트롤만 찾아
+ * id 를 붙이고 나머지는 그대로 렌더한다.
  */
 export function Field({
   label,
@@ -102,9 +104,10 @@ export function Field({
   const id = useId();
   const hintId = hint ? `${id}-hint` : undefined;
 
-  const child = Children.only(children);
-  const isControl =
-    isValidElement(child) && typeof child.type === 'string' && LABELABLE.has(child.type);
+  const items = Children.toArray(children);
+  const controlIndex = items.findIndex(
+    (child) => isValidElement(child) && typeof child.type === 'string' && LABELABLE.has(child.type),
+  );
 
   const labelContent = (
     <>
@@ -117,42 +120,43 @@ export function Field({
     </>
   );
 
-  if (!isControl) {
+  const hintNode = hint ? (
+    <span id={hintId} className="label-text-alt text-base-content/50 mt-1 block text-xs">
+      {hint}
+    </span>
+  ) : null;
+
+  // 폼 컨트롤이 없으면(예: 태그 버튼 묶음) 라벨 대신 group 으로 묶는다.
+  // htmlFor 가 div 를 가리키는 것은 유효하지 않다.
+  if (controlIndex === -1) {
     return (
-      <div
-        className="form-control w-full"
-        role="group"
-        aria-label={label}
-        aria-describedby={hintId}
-      >
+      <div className="form-control w-full" role="group" aria-label={label} aria-describedby={hintId}>
         <span className="label-text mb-1 block text-sm font-medium">{labelContent}</span>
-        {child}
-        {hint && (
-          <span id={hintId} className="label-text-alt text-base-content/50 mt-1 block text-xs">
-            {hint}
-          </span>
-        )}
+        {items}
+        {hintNode}
       </div>
     );
   }
 
-  const element = child as ReactElement<{ id?: string; 'aria-describedby'?: string }>;
-  const control = cloneElement(element, {
-    id: element.props.id ?? id,
-    'aria-describedby': hintId ?? element.props['aria-describedby'],
-  });
+  const control = items[controlIndex] as ReactElement<{ id?: string; 'aria-describedby'?: string }>;
+  const controlId = control.props.id ?? id;
+
+  const rendered = items.map((child, index) =>
+    index === controlIndex
+      ? cloneElement(control, {
+          id: controlId,
+          'aria-describedby': hintId ?? control.props['aria-describedby'],
+        })
+      : child,
+  );
 
   return (
     <div className="form-control w-full">
-      <label htmlFor={element.props.id ?? id} className="label-text mb-1 block text-sm font-medium">
+      <label htmlFor={controlId} className="label-text mb-1 block text-sm font-medium">
         {labelContent}
       </label>
-      {control}
-      {hint && (
-        <span id={hintId} className="label-text-alt text-base-content/50 mt-1 block text-xs">
-          {hint}
-        </span>
-      )}
+      {rendered}
+      {hintNode}
     </div>
   );
 }

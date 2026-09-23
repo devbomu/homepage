@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { NavLink, Outlet } from 'react-router';
+import { NavLink, Outlet, useLocation } from 'react-router';
 
 import { adminApi } from '../lib/api';
+import ErrorBoundary from './ErrorBoundary';
 
 const NAV = [
   { to: '/', label: '대시보드', end: true },
@@ -15,6 +16,7 @@ const NAV = [
 ];
 
 export default function Layout() {
+  const location = useLocation();
   const me = useQuery({ queryKey: ['me'], queryFn: () => adminApi.me().then((r) => r.data) });
 
   const pending = useQuery({
@@ -40,7 +42,10 @@ export default function Layout() {
         </header>
 
         <main className="flex-1 p-4 sm:p-6">
-          <Outlet />
+          {/* key 를 경로로 두어 다른 메뉴로 이동하면 오류 상태가 자동으로 풀린다. */}
+          <ErrorBoundary key={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
 
