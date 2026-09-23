@@ -42,6 +42,20 @@ const siteDescription = settings['site.description'] ?? '김남수의 개인 홈
 const author = settings['site.author'] ?? '김남수';
 
 const pageTitle = title ? `${title} · ${siteTitle}` : siteTitle;
+
+/**
+ * 파비콘과 공유 카드 이미지는 관리자 설정에서 온다.
+ * 비어 있으면 저장소에 들어 있는 기본 파비콘을 쓴다.
+ */
+const faviconUrl = settings['site.faviconUrl'] || '/favicon.svg';
+const faviconType = faviconUrl.endsWith('.svg')
+  ? 'image/svg+xml'
+  : faviconUrl.endsWith('.png')
+    ? 'image/png'
+    : undefined;
+
+// 글이나 프로젝트가 자체 이미지를 주면 그걸 쓰고, 없으면 사이트 기본값으로 떨어진다.
+const shareImage = ogImage || settings['site.ogImageUrl'] || null;
 const pageDescription = description ?? siteDescription;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 ---
@@ -62,16 +76,22 @@ const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
     <meta property="og:description" content={pageDescription} />
     <meta property="og:url" content={canonical.href} />
     <meta property="og:site_name" content={siteTitle} />
-    {ogImage && <meta property="og:image" content={ogImage} />}
+    {shareImage && (
+      <>
+        <meta property="og:image" content={shareImage} />
+        <meta property="og:image:alt" content={title ?? siteTitle} />
+      </>
+    )}
     {ogType === 'article' && publishedAt && (
       <meta
         property="article:published_time"
         content={new Date(publishedAt * 1000).toISOString()}
       />
     )}
-    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:card" content={shareImage ? 'summary_large_image' : 'summary'} />
 
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href={faviconUrl} {...(faviconType ? { type: faviconType } : {})} />
+    <link rel="apple-touch-icon" href={faviconUrl} />
     <link rel="alternate" type="application/rss+xml" title={siteTitle} href="/rss.xml" />
 
     <!--

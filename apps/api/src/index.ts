@@ -4,6 +4,7 @@ import type { AppEnv } from './env';
 import { isDevelopment, parseList } from './env';
 import { handleError, handleNotFound } from './middleware/error';
 import { securityHeaders } from './middleware/security';
+import { publishDueContent } from './queries/schedule';
 import { adminRoutes } from './routes/admin';
 import { publicEngagement } from './routes/public/engagement';
 import { publicPosts } from './routes/public/posts';
@@ -90,5 +91,22 @@ export default {
     }
 
     return app.fetch(request, env, ctx);
+  },
+
+  /**
+   * 예약 발행 정리 (5분마다).
+   *
+   * 실패해도 공개 여부에는 영향이 없다 — visibility.ts 의 조건이 상태와 시각을
+   * 함께 보기 때문이다. 그래서 여기서 예외를 삼키고 로그만 남긴다.
+   */
+  async scheduled(_event: ScheduledController, env: AppEnv['Bindings']) {
+    try {
+      const result = await publishDueContent(env.DB);
+      if (result.posts > 0 || result.pages > 0) {
+        console.log('published due content', result);
+      }
+    } catch (error) {
+      console.error('scheduled publish failed', { error: String(error) });
+    }
   },
 };

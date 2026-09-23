@@ -11,11 +11,14 @@ import { api } from '@lib/api';
 export const GET: APIRoute = async ({ site }) => {
   const origin = site?.origin ?? 'https://www.namsu.kim';
 
-  const [feed, categories, tags, nav] = await Promise.all([
+  // 페이지는 nav 가 아니라 feed 로 가져온다. nav 는 메뉴에 노출하는 것만
+  // 돌려주기 때문에, 메뉴에 없는 공개 페이지가 색인에서 통째로 빠졌다.
+  const [feed, categories, tags, sitePages, projects] = await Promise.all([
     api.posts.feed().then((r) => r.data ?? []),
     api.categories.tree().then((r) => r.data ?? []),
     api.tags.list().then((r) => r.data ?? []),
-    api.site.nav().then((r) => r.data ?? []),
+    api.pages.feed().then((r) => r.data ?? []),
+    api.projects.list().then((r) => r.data ?? []),
   ]);
 
   const entries: { loc: string; lastmod?: string; priority: string }[] = [
@@ -47,8 +50,20 @@ export const GET: APIRoute = async ({ site }) => {
 
   for (const tag of tags)
     entries.push({ loc: `/tag/${encodeURIComponent(tag.slug)}`, priority: '0.4' });
-  for (const page of nav)
-    entries.push({ loc: `/${encodeURIComponent(page.slug)}`, priority: '0.7' });
+  for (const page of sitePages) {
+    entries.push({
+      loc: `/${encodeURIComponent(page.slug)}`,
+      lastmod: new Date(page.updatedAt * 1000).toISOString(),
+      priority: '0.7',
+    });
+  }
+
+  for (const project of projects) {
+    entries.push({
+      loc: `/projects/${encodeURIComponent(project.slug)}`,
+      priority: project.isFeatured ? '0.7' : '0.6',
+    });
+  }
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

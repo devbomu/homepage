@@ -1,12 +1,26 @@
-import json, urllib.request, urllib.error, sys, uuid
+import json, urllib.parse, urllib.request, urllib.error, sys, uuid
 
 RUN_UA = f"namsu-api-test/{uuid.uuid4()}"
 
 BASE = "http://localhost:8787"
 passed, failed = 0, 0
 
+def encode_path(path):
+    """
+    URL 을 안전하게 인코딩한다.
+
+    '%' 를 안전 문자에 넣는 것이 핵심이다. 그래야 호출부가 이미 인코딩해 넘긴 값은
+    그대로 통과하고, 생 한글만 인코딩된다. 이걸 빠뜨려 이중 인코딩이 나는 바람에
+    멀쩡한 검색 기능을 두 번이나 버그로 오해했다.
+    """
+    if "?" in path:
+        p, q = path.split("?", 1)
+        return urllib.parse.quote(p, safe="/%") + "?" + urllib.parse.quote(q, safe="=&%")
+    return urllib.parse.quote(path, safe="/%")
+
+
 def call(method, path, body=None, headers=None):
-    req = urllib.request.Request(BASE + path, method=method)
+    req = urllib.request.Request(BASE + encode_path(path), method=method)
     req.add_header("Origin", "http://localhost:4321")
     req.add_header("User-Agent", RUN_UA)
     for k, v in (headers or {}).items(): req.add_header(k, v)
@@ -54,7 +68,7 @@ check("태그 목록 + 글 수", s == 200 and len(b["data"]) == 4, f"{s} {len(b[
 
 print("\n=== 글 ===")
 s, b = call("GET", "/v1/posts")
-check("글 목록", s == 200 and len(b["data"]) == 1, f"{s}")
+check("글 목록", s == 200 and len(b["data"]) == 2, f"{s} {len(b.get(chr(34)+'data'+chr(34), []))}건")
 post = b["data"][0] if s == 200 and b["data"] else {}
 check("카테고리 조인", post.get("category", {}) and post["category"]["path"] == "dev/backend/infra")
 check("태그 조인 (N+1 없이)", len(post.get("tags", [])) == 2, str(post.get("tags")))
@@ -76,6 +90,28 @@ s, b = call("GET", "/v1/posts?category=life")
 check("다른 카테고리는 빈 결과", s == 200 and len(b["data"]) == 0)
 s, b = call("GET", "/v1/posts?category=nope")
 check("없는 카테고리는 404", s == 404)
+
+print("\n=== 예약 발행 (회귀) ===")
+# 공개 조건이 status 와 published_at 을 함께 봐야 한다.
+# status 만 보면 예약은 영영 안 나오고, 미래 날짜 발행은 즉시 나온다.
+s, b = call("GET", "/v1/posts")
+slugs = {p["slug"] for p in b.get("data", [])}
+check("시간이 지난 '예약' 글은 공개된다", "예약-지난것" in slugs, str(sorted(slugs)))
+check("시간 전 '예약' 글은 숨는다", "예약-미래것" not in slugs)
+check("미래 날짜의 '발행' 글도 숨는다", "발행-미래것" not in slugs)
+
+s, _ = call("GET", "/v1/posts/예약-지난것")
+check(f"시간 지난 예약 글 상세 열림 ({s})", s == 200)
+s, _ = call("GET", "/v1/posts/발행-미래것")
+check(f"미래 발행 글 상세는 404 ({s})", s == 404)
+
+s, b = call("GET", "/v1/feed/posts")
+feed_slugs = {p["slug"] for p in b.get("data", [])}
+check("RSS 재료에도 같은 규칙 적용", "예약-지난것" in feed_slugs and "발행-미래것" not in feed_slugs,
+      str(sorted(feed_slugs)))
+
+s, b = call("GET", "/v1/feed/pages")
+check(f"사이트맵용 페이지 목록 ({s})", s == 200 and isinstance(b.get("data"), list))
 
 print("\n=== LIKE 와일드카드가 든 slug (회귀) ===")
 # SQLite 는 ESCAPE 절이 없으면 백슬래시를 이스케이프 문자로 보지 않는다.

@@ -80,6 +80,12 @@ export interface PageContent {
   updatedAt: number;
 }
 
+export interface ProjectDetail extends Project {
+  description: string;
+  descriptionHtml: string | null;
+  updatedAt: number;
+}
+
 export interface Project {
   slug: string;
   title: string;
@@ -106,6 +112,10 @@ export interface SiteSettings {
   'site.author'?: string;
   'site.locale'?: string;
   'site.social'?: Record<string, string>;
+  /** 브라우저 탭 아이콘. 비우면 저장소의 기본 파비콘을 쓴다. */
+  'site.faviconUrl'?: string;
+  /** 공유 카드 기본 이미지. 글에 자체 이미지가 없을 때 쓰인다. */
+  'site.ogImageUrl'?: string;
   [key: string]: unknown;
 }
 
@@ -233,6 +243,13 @@ export const api = {
   },
 
   pages: {
+    /** 사이트맵용. 메뉴 노출 여부와 무관하게 공개된 페이지 전부. */
+    feed() {
+      return request<
+        { slug: string; title: string; publishedAt: number | null; updatedAt: number }[]
+      >('/v1/feed/pages');
+    },
+
     get(slug: string) {
       return optional(request<PageContent>(`/v1/pages/${encodeURIComponent(slug)}`));
     },
@@ -241,6 +258,9 @@ export const api = {
   projects: {
     list() {
       return request<Project[]>('/v1/projects');
+    },
+    get(slug: string) {
+      return optional(request<ProjectDetail>(`/v1/projects/${encodeURIComponent(slug)}`));
     },
   },
 

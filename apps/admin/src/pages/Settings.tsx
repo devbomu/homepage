@@ -12,6 +12,26 @@ const FIELDS = [
   { key: 'site.locale', label: '언어', hint: '예: ko' },
 ] as const;
 
+/**
+ * 이미지 설정. 미디어 화면에서 올린 뒤 주소를 붙여넣는다.
+ * 파비콘과 공유 카드는 쓰임새가 달라 한 장으로 겸할 수 없다 —
+ * 하나는 작은 정사각형, 다른 하나는 넓은 직사각형이다.
+ */
+const IMAGE_FIELDS = [
+  {
+    key: 'site.faviconUrl',
+    label: '파비콘',
+    hint: '브라우저 탭과 즐겨찾기 아이콘. 정사각형 SVG 또는 512×512 PNG 를 권합니다. 비우면 기본 아이콘을 씁니다.',
+    preview: 'square',
+  },
+  {
+    key: 'site.ogImageUrl',
+    label: '공유 카드 기본 이미지',
+    hint: '카카오톡·슬랙·X 등에 링크를 붙였을 때 나오는 이미지. 1200×630 을 권합니다. 글에 자체 이미지가 있으면 그쪽이 우선합니다.',
+    preview: 'wide',
+  },
+] as const;
+
 export default function Settings() {
   const queryClient = useQueryClient();
   const [values, setValues] = useState<Record<string, string>>({});
@@ -90,6 +110,35 @@ export default function Settings() {
             />
           </Field>
         ))}
+
+        <div className="divider text-base-content/50 text-xs">이미지</div>
+
+        {IMAGE_FIELDS.map((field) => (
+          <Field key={field.key} label={field.label} hint={field.hint}>
+            <input
+              className="input input-bordered input-sm w-full"
+              placeholder="https://media.namsu.kim/…"
+              value={values[field.key] ?? ''}
+              onChange={(e) => setValues((prev) => ({ ...prev, [field.key]: e.target.value }))}
+            />
+            {values[field.key] && (
+              <img
+                src={values[field.key]}
+                alt=""
+                className={
+                  field.preview === 'square'
+                    ? 'bg-base-200 mt-2 size-16 rounded-lg object-contain p-1'
+                    : 'bg-base-200 mt-2 aspect-[1200/630] w-64 rounded-lg object-cover'
+                }
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+            )}
+          </Field>
+        ))}
+
+        <div className="divider text-base-content/50 text-xs">링크</div>
 
         <Field label="소셜 링크" hint='예: {"github": "https://github.com/devbomu"}'>
           <textarea

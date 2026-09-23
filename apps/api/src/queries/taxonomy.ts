@@ -1,7 +1,8 @@
 import { categories, categoryPath, posts, postTags, series, tags, type Db } from '@namsu/db';
-import { and, asc, count, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, or, sql } from 'drizzle-orm';
 
 import { ApiError } from '../lib/errors';
+import { visiblePost } from './visibility';
 
 // ---------------------------------------------------------------------------
 // 카테고리
@@ -49,7 +50,7 @@ export async function getCategoryTree(db: Db): Promise<CategoryNode[]> {
     db
       .select({ categoryId: posts.categoryId, n: count() })
       .from(posts)
-      .where(and(eq(posts.status, 'published'), isNull(posts.deletedAt)))
+      .where(visiblePost)
       .groupBy(posts.categoryId),
   ]);
 
@@ -303,10 +304,7 @@ export async function listTagsWithCounts(db: Db) {
     })
     .from(tags)
     .leftJoin(postTags, eq(postTags.tagId, tags.id))
-    .leftJoin(
-      posts,
-      and(eq(posts.id, postTags.postId), eq(posts.status, 'published'), isNull(posts.deletedAt)),
-    )
+    .leftJoin(posts, and(eq(posts.id, postTags.postId), visiblePost))
     .groupBy(tags.id)
     .orderBy(sql`count(${posts.id}) desc`, asc(tags.name));
 }

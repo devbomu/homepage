@@ -4,10 +4,22 @@ BASE = "http://localhost:8787"
 UA = f"namsu-admin-test/{uuid.uuid4()}"
 passed = failed = 0
 
+def encode_path(path):
+    """
+    URL 을 안전하게 인코딩한다.
+
+    '%' 를 안전 문자에 넣는 것이 핵심이다. 그래야 호출부가 이미 인코딩해 넘긴 값은
+    그대로 통과하고, 생 한글만 인코딩된다. 이걸 빠뜨려 이중 인코딩이 나는 바람에
+    멀쩡한 검색 기능을 두 번이나 버그로 오해했다.
+    """
+    if "?" in path:
+        p, q = path.split("?", 1)
+        return urllib.parse.quote(p, safe="/%") + "?" + urllib.parse.quote(q, safe="=&%")
+    return urllib.parse.quote(path, safe="/%")
+
+
 def call(method, path, body=None):
-    # 한글 slug 는 경로에 그대로 못 넣는다. 브라우저는 알아서 인코딩하지만 urllib 은 안 한다.
-    path = urllib.parse.quote(path, safe="/?=&")
-    req = urllib.request.Request(BASE + path, method=method)
+    req = urllib.request.Request(BASE + encode_path(path), method=method)
     req.add_header("Origin", "http://localhost:5173"); req.add_header("User-Agent", UA)
     data = None
     if body is not None:

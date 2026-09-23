@@ -1,11 +1,12 @@
 import { createDb, pages, posts, projects, siteSettings } from '@namsu/db';
-import { and, asc, desc, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 
 import type { AppEnv } from '../../env';
 import { ApiError } from '../../lib/errors';
 import { renderMarkdown } from '../../lib/markdown';
 import { ok } from '../../lib/response';
+import { visiblePage, visiblePost } from '../../queries/visibility';
 
 export const publicSite = new Hono<AppEnv>();
 
@@ -26,7 +27,7 @@ publicSite.get('/nav', async (c) => {
   const rows = await db
     .select({ slug: pages.slug, label: pages.navLabel, title: pages.title })
     .from(pages)
-    .where(and(eq(pages.showInNav, true), eq(pages.status, 'published')))
+    .where(and(eq(pages.showInNav, true), visiblePage))
     .orderBy(asc(pages.sortOrder), asc(pages.id));
 
   return ok(
@@ -49,7 +50,7 @@ publicSite.get('/pages/:slug', async (c) => {
       updatedAt: pages.updatedAt,
     })
     .from(pages)
-    .where(and(eq(pages.slug, c.req.param('slug')), eq(pages.status, 'published')))
+    .where(and(eq(pages.slug, c.req.param('slug')), visiblePage))
     .limit(1);
 
   if (!page) throw ApiError.notFound('페이지를 찾을 수 없습니다.');
@@ -96,6 +97,30 @@ publicSite.get('/projects/:slug', async (c) => {
 });
 
 /**
+ * GET /v1/feed/pages
+ *
+ * 사이트맵용. /v1/nav 는 메뉴에 노출하는 페이지만 돌려주기 때문에,
+ * 메뉴에 없는 공개 페이지가 사이트맵에서 통째로 빠지고 있었다.
+ * 색인 대상은 "메뉴에 있는가" 가 아니라 "공개인가" 로 판단해야 한다.
+ */
+publicSite.get('/feed/pages', async (c) => {
+  const db = createDb(c.env.DB);
+
+  const rows = await db
+    .select({
+      slug: pages.slug,
+      title: pages.title,
+      publishedAt: pages.publishedAt,
+      updatedAt: pages.updatedAt,
+    })
+    .from(pages)
+    .where(visiblePage)
+    .orderBy(asc(pages.sortOrder), asc(pages.id));
+
+  return ok(c, rows);
+});
+
+/**
  * GET /v1/feed/posts
  * RSS 와 sitemap 은 www.namsu.kim 도메인에서 나가야 하므로 Astro 가 생성한다.
  * 여기서는 그 재료만 준다 (발행된 글 전체의 최소 필드).
@@ -112,7 +137,7 @@ publicSite.get('/feed/posts', async (c) => {
       updatedAt: posts.updatedAt,
     })
     .from(posts)
-    .where(and(eq(posts.status, 'published'), isNull(posts.deletedAt)))
+    .where(visiblePost)
     .orderBy(desc(posts.publishedAt))
     .limit(500);
 

@@ -316,7 +316,14 @@ export default function PostEditor() {
             </Field>
 
             {(draft.status === 'published' || draft.status === 'scheduled') && (
-              <Field label="발행 시각" hint="미래로 두면 그때까지 공개되지 않습니다.">
+              <Field
+                label="발행 시각"
+                hint={
+                  draft.status === 'scheduled'
+                    ? '이 시각이 지나면 자동으로 공개됩니다.'
+                    : '미래로 두면 그 시각까지 공개되지 않습니다.'
+                }
+              >
                 <input
                   type="datetime-local"
                   className="input input-bordered input-sm w-full"

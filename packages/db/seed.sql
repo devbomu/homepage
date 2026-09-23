@@ -61,6 +61,14 @@ INSERT INTO posts (slug, title, summary, content, category_id, status, published
     id, 'published', unixepoch(), 1, 30
   FROM categories WHERE path = 'dev/backend/infra';
 
+-- 예약 발행 검증용.
+-- 공개 조건이 status 와 published_at 을 함께 보는지 확인한다.
+-- 예전에는 status 만 봐서, 예약은 영영 안 나오고 미래 발행은 즉시 나왔다.
+INSERT INTO posts (slug, title, summary, content, status, published_at, reading_minutes, word_count) VALUES
+  ('예약-지난것',  '예약이지만 시간이 지난 글', '보여야 한다',   '본문', 'scheduled', unixepoch() - 3600,  1, 10),
+  ('예약-미래것',  '예약이고 아직 시간 전인 글', '숨어야 한다',   '본문', 'scheduled', unixepoch() + 86400, 1, 10),
+  ('발행-미래것',  '발행이지만 시간이 미래인 글', '숨어야 한다',   '본문', 'published', unixepoch() + 86400, 1, 10);
+
 INSERT INTO post_tags (post_id, tag_id)
   SELECT p.id, t.id FROM posts p, tags t WHERE p.slug = 'hello-world' AND t.slug IN ('cloudflare', 'hono');
 

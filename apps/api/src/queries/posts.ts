@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { renderMarkdown } from '../lib/markdown';
 import { type Cursor, slicePage } from '../lib/pagination';
+import { visiblePost } from './visibility';
 
 export interface PostTag {
   slug: string;
@@ -135,7 +136,8 @@ async function loadTags(db: Db, postIds: number[]): Promise<Map<number, PostTag[
 }
 
 /** 공개 글만 보이도록 하는 조건. 모든 공개 쿼리가 이걸 통과해야 한다. */
-const publishedOnly = and(eq(posts.status, 'published'), isNull(posts.deletedAt));
+/** 공개 글만 보이도록 하는 조건. 정의는 visibility.ts 한곳에 있다. */
+const publishedOnly = visiblePost;
 
 export interface ListOptions {
   limit: number;

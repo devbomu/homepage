@@ -1,0 +1,114 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { api } from '@lib/api';
+import { formatDate, toIso } from '@lib/format';
+import { extractToc } from '@lib/toc';
+
+const { slug } = Astro.params;
+
+const project = slug ? await api.projects.get(slug) : null;
+if (!project) return Astro.rewrite('/404');
+
+// 제목에 앵커 id 를 심는다. 목차는 띄우지 않지만 URL 로 특정 절을 가리킬 수 있다.
+const { html } = extractToc(project.descriptionHtml ?? '');
+
+const period = (() => {
+  if (!project.startedOn) return null;
+  const start = project.startedOn.slice(0, 7).replace('-', '.');
+  const end = project.endedOn ? project.endedOn.slice(0, 7).replace('-', '.') : '진행 중';
+  return `${start} – ${end}`;
+})();
+---
+
+<BaseLayout
+  title={project.title}
+  description={project.summary ?? undefined}
+  ogImage={project.thumbnailUrl}
+>
+  <article class="mx-auto max-w-3xl">
+    <nav class="breadcrumbs text-sm" aria-label="현재 위치">
+      <ul>
+        <li>
+          <a href="/projects" class="link link-hover">
+            프로젝트
+          </a>
+        </li>
+        <li>
+          <span aria-current="page">{project.title}</span>
+        </li>
+      </ul>
+    </nav>
+
+    <header class="mt-4 mb-8">
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="text-3xl font-bold">{project.title}</h1>
+        {project.isFeatured && <span class="badge badge-primary badge-sm">대표</span>}
+      </div>
+
+      {project.summary && <p class="text-base-content/70 mt-3">{project.summary}</p>}
+
+      {(period || project.role) && (
+        <p class="text-base-content/50 mt-2 text-sm">
+          {period}
+          {period && project.role && ' · '}
+          {project.role}
+        </p>
+      )}
+
+      {project.techStack.length > 0 && (
+        <div class="mt-4 flex flex-wrap gap-1.5">
+          {project.techStack.map((tech) => (
+            <span class="badge badge-ghost badge-sm">{tech}</span>
+          ))}
+        </div>
+      )}
+
+      <div class="mt-5 flex flex-wrap gap-2">
+        {project.repoUrl && (
+          <a
+            href={project.repoUrl}
+            class="btn btn-outline btn-sm"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            저장소 ↗
+          </a>
+        )}
+        {project.demoUrl && (
+          <a
+            href={project.demoUrl}
+            class="btn btn-primary btn-sm"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            보러 가기 ↗
+          </a>
+        )}
+      </div>
+
+      {project.thumbnailUrl && (
+        <img
+          src={project.thumbnailUrl}
+          alt=""
+          class="mt-6 aspect-[16/9] w-full rounded-2xl object-cover"
+          loading="eager"
+        />
+      )}
+    </header>
+
+    {html ? (
+      <div class="prose prose-lg max-w-none" set:html={html} />
+    ) : (
+      <p class="text-base-content/50 text-sm">아직 설명이 없습니다.</p>
+    )}
+
+    <footer class="border-base-300 mt-10 border-t pt-6">
+      <p class="text-base-content/50 text-sm">
+        마지막 수정 <time datetime={toIso(project.updatedAt)}>{formatDate(project.updatedAt)}</time>
+      </p>
+      <a href="/projects" class="link link-hover text-primary mt-2 inline-block text-sm">
+        ← 프로젝트 목록
+      </a>
+    </footer>
+  </article>
+</BaseLayout>

@@ -1,13 +1,14 @@
 import { postLikes, posts, postViewDaily, type Db } from '@namsu/db';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import { ApiError } from '../lib/errors';
+import { visiblePost } from './visibility';
 
 async function findPublishedPostId(db: Db, slug: string): Promise<number> {
   const [row] = await db
     .select({ id: posts.id })
     .from(posts)
-    .where(and(eq(posts.slug, slug), eq(posts.status, 'published'), isNull(posts.deletedAt)))
+    .where(and(eq(posts.slug, slug), visiblePost))
     .limit(1);
   if (!row) throw ApiError.notFound('글을 찾을 수 없습니다.');
   return row.id;

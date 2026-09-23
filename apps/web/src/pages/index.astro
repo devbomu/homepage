@@ -72,7 +72,7 @@ const recentWithoutPinned = recent.filter((post) => !pinnedSlugs.has(post.slug))
       </div>
       <div class="grid gap-5 sm:grid-cols-3">
         {projects.map((project) => (
-          <a href={`/projects#${project.slug}`} class="frost-card block p-5">
+          <a href={`/projects/${encodeURIComponent(project.slug)}`} class="frost-card block p-5">
             <h3 class="font-semibold">{project.title}</h3>
             {project.summary && (
               <p class="text-base-content/70 mt-2 line-clamp-2 text-sm">{project.summary}</p>

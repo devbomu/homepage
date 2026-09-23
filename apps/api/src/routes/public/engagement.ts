@@ -1,6 +1,6 @@
 import { createDb, posts } from '@namsu/db';
 import { zValidator } from '@hono/zod-validator';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
@@ -12,6 +12,7 @@ import { clientIp } from '../../lib/visitor';
 import { rateLimit } from '../../middleware/ratelimit';
 import { withVisitor } from '../../middleware/visitor';
 import { createComment, isDuplicateComment, listApprovedComments } from '../../queries/comments';
+import { visiblePost } from '../../queries/visibility';
 import { getLikeState, recordView, toggleLike } from '../../queries/engagement';
 
 export const publicEngagement = new Hono<AppEnv>();
@@ -73,13 +74,7 @@ publicEngagement.get('/:slug/comments', async (c) => {
   const [post] = await db
     .select({ id: posts.id, allowComments: posts.allowComments })
     .from(posts)
-    .where(
-      and(
-        eq(posts.slug, c.req.param('slug')),
-        eq(posts.status, 'published'),
-        isNull(posts.deletedAt),
-      ),
-    )
+    .where(and(eq(posts.slug, c.req.param('slug')), visiblePost))
     .limit(1);
 
   if (!post) throw ApiError.notFound('글을 찾을 수 없습니다.');
@@ -130,13 +125,7 @@ publicEngagement.post(
     const [post] = await db
       .select({ id: posts.id })
       .from(posts)
-      .where(
-        and(
-          eq(posts.slug, c.req.param('slug')),
-          eq(posts.status, 'published'),
-          isNull(posts.deletedAt),
-        ),
-      )
+      .where(and(eq(posts.slug, c.req.param('slug')), visiblePost))
       .limit(1);
     if (!post) throw ApiError.notFound('글을 찾을 수 없습니다.');
 

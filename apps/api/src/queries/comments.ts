@@ -3,6 +3,7 @@ import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
 
 import { ApiError } from '../lib/errors';
 import { type Cursor, slicePage } from '../lib/pagination';
+import { visiblePost } from './visibility';
 
 /** 대댓글 최대 깊이. 0 = 최상위. 너무 깊어지면 모바일에서 읽기 어렵다. */
 const MAX_REPLY_DEPTH = 2;
@@ -72,7 +73,7 @@ export async function createComment(db: Db, input: CreateCommentInput) {
   const [post] = await db
     .select({ id: posts.id, allowComments: posts.allowComments })
     .from(posts)
-    .where(and(eq(posts.id, input.postId), eq(posts.status, 'published'), isNull(posts.deletedAt)))
+    .where(and(eq(posts.id, input.postId), visiblePost))
     .limit(1);
 
   if (!post) throw ApiError.notFound('글을 찾을 수 없습니다.');

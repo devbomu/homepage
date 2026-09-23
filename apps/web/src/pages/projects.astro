@@ -36,7 +36,11 @@ const period = (project: Project) => {
           )}
           <div class="space-y-3 p-5">
             <div class="flex items-start justify-between gap-2">
-              <h2 class="text-lg font-bold">{project.title}</h2>
+              <h2 class="text-lg font-bold">
+                <a href={`/projects/${encodeURIComponent(project.slug)}`} class="link link-hover">
+                  {project.title}
+                </a>
+              </h2>
               {project.isFeatured && (
                 <span class="badge badge-primary badge-sm shrink-0">대표</span>
               )}
