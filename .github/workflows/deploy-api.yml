@@ -1,0 +1,48 @@
+name: 배포 · API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'packages/db/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # 마이그레이션이 먼저다. 새 코드가 아직 없는 컬럼을 읽으면 바로 깨진다.
+      - name: D1 마이그레이션
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: packages/db
+          command: d1 migrations apply namsu-kim --remote
+
+      - name: Worker 배포
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/api
+          command: deploy

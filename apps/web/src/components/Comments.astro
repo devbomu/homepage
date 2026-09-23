@@ -25,7 +25,9 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
 ---
 
 <section id="comments" class="mt-12" aria-labelledby="comments-heading">
-  <h2 id="comments-heading" class="mb-4 text-xl font-bold">댓글 {commentCount > 0 && `(${commentCount})`}</h2>
+  <h2 id="comments-heading" class="mb-4 text-xl font-bold">
+    댓글 {commentCount > 0 && `(${commentCount})`}
+  </h2>
 
   {comments.length === 0 && (
     <p class="text-base-content/60 py-6 text-sm">아직 댓글이 없습니다. 첫 댓글을 남겨보세요.</p>
@@ -37,7 +39,12 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
         <div class="flex items-baseline gap-2">
           <span class="font-semibold">
             {comment.authorWebsite ? (
-              <a href={comment.authorWebsite} class="link link-hover" rel="nofollow noopener noreferrer" target="_blank">
+              <a
+                href={comment.authorWebsite}
+                class="link link-hover"
+                rel="nofollow noopener noreferrer"
+                target="_blank"
+              >
                 {comment.authorName}
               </a>
             ) : (
@@ -74,11 +81,19 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
   </ol>
 
   {allowComments ? (
-    <form data-comment-form data-slug={slug} data-api={apiUrl} class="frost-card mt-6 space-y-3 p-5">
+    <form
+      data-comment-form
+      data-slug={slug}
+      data-api={apiUrl}
+      class="frost-card mt-6 space-y-3 p-5"
+    >
       <div class="grid gap-3 sm:grid-cols-2">
         <div class="form-control">
           <label for="comment-author" class="label-text mb-1 block text-sm">
-            이름 <span class="text-error" aria-hidden="true">*</span>
+            이름{' '}
+            <span class="text-error" aria-hidden="true">
+              *
+            </span>
           </label>
           <input
             id="comment-author"
@@ -91,7 +106,9 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
         </div>
 
         <div class="form-control">
-          <label for="comment-email" class="label-text mb-1 block text-sm">이메일 (선택)</label>
+          <label for="comment-email" class="label-text mb-1 block text-sm">
+            이메일 (선택)
+          </label>
           <input
             id="comment-email"
             name="authorEmail"
@@ -101,7 +118,10 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
             aria-describedby="comment-email-help"
             class="input input-bordered input-sm w-full"
           />
-          <span id="comment-email-help" class="label-text-alt text-base-content/50 mt-1 block text-xs">
+          <span
+            id="comment-email-help"
+            class="label-text-alt text-base-content/50 mt-1 block text-xs"
+          >
             공개되지 않습니다. 답글 알림에만 사용합니다.
           </span>
         </div>
@@ -109,7 +129,10 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
 
       <div class="form-control">
         <label for="comment-body" class="label-text mb-1 block text-sm">
-          내용 <span class="text-error" aria-hidden="true">*</span>
+          내용{' '}
+          <span class="text-error" aria-hidden="true">
+            *
+          </span>
         </label>
         <textarea
           id="comment-body"
@@ -117,7 +140,8 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
           required
           maxlength="5000"
           rows="4"
-          class="textarea textarea-bordered w-full"></textarea>
+          class="textarea textarea-bordered w-full"
+        ></textarea>
       </div>
 
       {turnstileKey && <div class="cf-turnstile" data-sitekey={turnstileKey}></div>}
@@ -125,7 +149,9 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
       <p data-comment-message role="status" class="hidden text-sm"></p>
 
       <div class="flex justify-end">
-        <button type="submit" class="btn btn-primary btn-sm">댓글 남기기</button>
+        <button type="submit" class="btn btn-primary btn-sm">
+          댓글 남기기
+        </button>
       </div>
     </form>
   ) : (
@@ -134,7 +160,12 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
 </section>
 
 {turnstileKey && (
-  <script is:inline async defer src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>
+  <script
+    is:inline
+    async
+    defer
+    src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+  ></script>
 )}
 
 <script>

@@ -49,7 +49,11 @@ export async function toggleLike(db: Db, slug: string, visitorHash: string) {
 }
 
 async function currentLikeCount(db: Db, postId: number): Promise<number> {
-  const [row] = await db.select({ likeCount: posts.likeCount }).from(posts).where(eq(posts.id, postId)).limit(1);
+  const [row] = await db
+    .select({ likeCount: posts.likeCount })
+    .from(posts)
+    .where(eq(posts.id, postId))
+    .limit(1);
   return row?.likeCount ?? 0;
 }
 

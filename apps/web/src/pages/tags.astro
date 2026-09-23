@@ -29,7 +29,10 @@ const sizeClass = (count: number) => {
   ) : (
     <div class="frost-card flex flex-wrap gap-3 p-6">
       {tags.map((tag) => (
-        <a href={tagUrl(tag.slug)} class:list={['link link-hover hover:text-primary', sizeClass(tag.postCount)]}>
+        <a
+          href={tagUrl(tag.slug)}
+          class:list={['link link-hover hover:text-primary', sizeClass(tag.postCount)]}
+        >
           #{tag.name}
           <span class="text-base-content/40 ml-1 text-xs">{tag.postCount}</span>
         </a>

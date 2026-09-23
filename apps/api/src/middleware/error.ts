@@ -23,7 +23,9 @@ export function handleError(err: Error, c: Context<AppEnv>): Response {
       });
     }
     return c.json(
-      { error: { code: err.code, message: err.message, ...(err.fields && { fields: err.fields }) } },
+      {
+        error: { code: err.code, message: err.message, ...(err.fields && { fields: err.fields }) },
+      },
       err.status as never,
     );
   }

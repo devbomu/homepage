@@ -7,3 +7,5 @@ build
 pnpm-lock.yaml
 server/internal/store/*.sql.go
 packages/api-client/src/schema.ts
+*.sql
+packages/db/migrations

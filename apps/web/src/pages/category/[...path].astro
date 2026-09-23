@@ -53,16 +53,23 @@ const baseUrl = `/category/${path.split('/').map(encodeURIComponent).join('/')}`
       </header>
 
       {posts.length === 0 ? (
-        <p class="text-base-content/60 py-12 text-center text-sm">이 카테고리에는 아직 글이 없습니다.</p>
+        <p class="text-base-content/60 py-12 text-center text-sm">
+          이 카테고리에는 아직 글이 없습니다.
+        </p>
       ) : (
         <div class="grid gap-5 sm:grid-cols-2">
-          {posts.map((post) => <PostCard post={post} />)}
+          {posts.map((post) => (
+            <PostCard post={post} />
+          ))}
         </div>
       )}
 
       {meta?.hasMore && meta.nextCursor && (
         <div class="mt-8 flex justify-center">
-          <a href={`${baseUrl}?cursor=${encodeURIComponent(meta.nextCursor)}`} class="btn btn-outline btn-sm">
+          <a
+            href={`${baseUrl}?cursor=${encodeURIComponent(meta.nextCursor)}`}
+            class="btn btn-outline btn-sm"
+          >
             더 보기
           </a>
         </div>

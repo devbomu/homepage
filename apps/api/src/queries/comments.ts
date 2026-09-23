@@ -38,7 +38,9 @@ export async function listApprovedComments(db: Db, postId: number): Promise<Publ
       createdAt: comments.createdAt,
     })
     .from(comments)
-    .where(and(eq(comments.postId, postId), eq(comments.status, 'approved'), isNull(comments.deletedAt)))
+    .where(
+      and(eq(comments.postId, postId), eq(comments.status, 'approved'), isNull(comments.deletedAt)),
+    )
     .orderBy(asc(comments.createdAt));
 
   const nodes = new Map<number, PublicComment>();
@@ -78,7 +80,12 @@ export async function createComment(db: Db, input: CreateCommentInput) {
 
   if (input.parentId != null) {
     const [parent] = await db
-      .select({ id: comments.id, postId: comments.postId, parentId: comments.parentId, status: comments.status })
+      .select({
+        id: comments.id,
+        postId: comments.postId,
+        parentId: comments.parentId,
+        status: comments.status,
+      })
       .from(comments)
       .where(and(eq(comments.id, input.parentId), isNull(comments.deletedAt)))
       .limit(1);

@@ -52,7 +52,9 @@ publicEngagement.post(
 publicEngagement.post('/:slug/view', async (c) => {
   const limiter = c.env.RATE_LIMIT_WRITE;
   if (limiter?.limit) {
-    const { success } = await limiter.limit({ key: `view:${c.get('visitorHash')}:${c.req.param('slug')}` });
+    const { success } = await limiter.limit({
+      key: `view:${c.get('visitorHash')}:${c.req.param('slug')}`,
+    });
     if (!success) return ok(c, { recorded: false });
   }
 
@@ -71,7 +73,13 @@ publicEngagement.get('/:slug/comments', async (c) => {
   const [post] = await db
     .select({ id: posts.id, allowComments: posts.allowComments })
     .from(posts)
-    .where(and(eq(posts.slug, c.req.param('slug')), eq(posts.status, 'published'), isNull(posts.deletedAt)))
+    .where(
+      and(
+        eq(posts.slug, c.req.param('slug')),
+        eq(posts.status, 'published'),
+        isNull(posts.deletedAt),
+      ),
+    )
     .limit(1);
 
   if (!post) throw ApiError.notFound('글을 찾을 수 없습니다.');
@@ -116,12 +124,19 @@ publicEngagement.post(
       input.turnstileToken ?? undefined,
       clientIp(c.req.raw.headers),
     );
-    if (!passed) throw ApiError.forbidden('봇 검증에 실패했습니다. 새로고침 후 다시 시도해 주세요.');
+    if (!passed)
+      throw ApiError.forbidden('봇 검증에 실패했습니다. 새로고침 후 다시 시도해 주세요.');
 
     const [post] = await db
       .select({ id: posts.id })
       .from(posts)
-      .where(and(eq(posts.slug, c.req.param('slug')), eq(posts.status, 'published'), isNull(posts.deletedAt)))
+      .where(
+        and(
+          eq(posts.slug, c.req.param('slug')),
+          eq(posts.status, 'published'),
+          isNull(posts.deletedAt),
+        ),
+      )
       .limit(1);
     if (!post) throw ApiError.notFound('글을 찾을 수 없습니다.');
 

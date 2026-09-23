@@ -119,9 +119,13 @@ const { html, toc } = extractToc(post.contentHtml ?? '');
 
       {post.related.length > 0 && (
         <section class="mt-12" aria-labelledby="related-heading">
-          <h2 id="related-heading" class="mb-4 text-lg font-bold">관련 글</h2>
+          <h2 id="related-heading" class="mb-4 text-lg font-bold">
+            관련 글
+          </h2>
           <div class="grid gap-5 sm:grid-cols-2">
-            {post.related.map((related) => <PostCard post={related} />)}
+            {post.related.map((related) => (
+              <PostCard post={related} />
+            ))}
           </div>
         </section>
       )}

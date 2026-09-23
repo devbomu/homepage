@@ -45,8 +45,10 @@ export const GET: APIRoute = async ({ site }) => {
   };
   walk(categories);
 
-  for (const tag of tags) entries.push({ loc: `/tag/${encodeURIComponent(tag.slug)}`, priority: '0.4' });
-  for (const page of nav) entries.push({ loc: `/${encodeURIComponent(page.slug)}`, priority: '0.7' });
+  for (const tag of tags)
+    entries.push({ loc: `/tag/${encodeURIComponent(tag.slug)}`, priority: '0.4' });
+  for (const page of nav)
+    entries.push({ loc: `/${encodeURIComponent(page.slug)}`, priority: '0.7' });
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

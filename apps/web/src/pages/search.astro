@@ -32,13 +32,17 @@ if (query) {
       autofocus
       aria-label="검색어"
     />
-    <button type="submit" class="btn btn-primary">검색</button>
+    <button type="submit" class="btn btn-primary">
+      검색
+    </button>
   </form>
 
   {query && (
     <>
       {failed ? (
-        <p class="text-error py-8 text-center text-sm">검색에 실패했습니다. 잠시 후 다시 시도해 주세요.</p>
+        <p class="text-error py-8 text-center text-sm">
+          검색에 실패했습니다. 잠시 후 다시 시도해 주세요.
+        </p>
       ) : results.length === 0 ? (
         <div class="py-12 text-center">
           <p class="text-base-content/60 text-sm">"{query}" 에 대한 결과가 없습니다.</p>
@@ -50,7 +54,9 @@ if (query) {
         <>
           <p class="text-base-content/60 mb-4 text-sm">{results.length}개의 결과</p>
           <div class="grid gap-5 sm:grid-cols-2">
-            {results.map((post) => <PostCard post={post} />)}
+            {results.map((post) => (
+              <PostCard post={post} />
+            ))}
           </div>
         </>
       )}

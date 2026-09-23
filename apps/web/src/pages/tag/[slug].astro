@@ -31,13 +31,18 @@ const label = posts[0]?.tags.find((tag) => tag.slug === slug)?.name ?? slug;
     <p class="text-base-content/60 py-12 text-center text-sm">이 태그의 글이 없습니다.</p>
   ) : (
     <div class="grid gap-5 sm:grid-cols-2">
-      {posts.map((post) => <PostCard post={post} />)}
+      {posts.map((post) => (
+        <PostCard post={post} />
+      ))}
     </div>
   )}
 
   {meta?.hasMore && meta.nextCursor && (
     <div class="mt-8 flex justify-center">
-      <a href={`/tag/${encodeURIComponent(slug)}?cursor=${encodeURIComponent(meta.nextCursor)}`} class="btn btn-outline btn-sm">
+      <a
+        href={`/tag/${encodeURIComponent(slug)}?cursor=${encodeURIComponent(meta.nextCursor)}`}
+        class="btn btn-outline btn-sm"
+      >
         더 보기
       </a>
     </div>

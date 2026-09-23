@@ -135,9 +135,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<{ data: T; 
     headers: { Accept: 'application/json', ...init?.headers },
   });
 
-  const body = (await response.json().catch(() => null)) as
-    | { data?: T; meta?: PageMeta; error?: { code: string; message: string } }
-    | null;
+  const body = (await response.json().catch(() => null)) as {
+    data?: T;
+    meta?: PageMeta;
+    error?: { code: string; message: string };
+  } | null;
 
   if (!response.ok) {
     throw new ApiError(
@@ -161,7 +163,15 @@ async function optional<T>(promise: Promise<{ data: T }>): Promise<T | null> {
 
 export const api = {
   posts: {
-    list(params: { limit?: number; cursor?: string; category?: string; tag?: string; series?: string } = {}) {
+    list(
+      params: {
+        limit?: number;
+        cursor?: string;
+        category?: string;
+        tag?: string;
+        series?: string;
+      } = {},
+    ) {
       const query = new URLSearchParams();
       for (const [key, value] of Object.entries(params)) {
         if (value != null && value !== '') query.set(key, String(value));
@@ -192,7 +202,13 @@ export const api = {
 
     feed() {
       return request<
-        { slug: string; title: string; summary: string | null; publishedAt: number | null; updatedAt: number }[]
+        {
+          slug: string;
+          title: string;
+          summary: string | null;
+          publishedAt: number | null;
+          updatedAt: number;
+        }[]
       >('/v1/feed/posts');
     },
   },

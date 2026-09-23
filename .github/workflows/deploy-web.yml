@@ -1,0 +1,43 @@
+name: 배포 · 공개 사이트
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - '.github/workflows/deploy-web.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Astro 는 PUBLIC_* 를 빌드 시점에 코드로 박아 넣는다.
+      # 따라서 이 값들은 배포가 아니라 빌드에서 결정된다 (.env.production).
+      - name: 빌드
+        run: pnpm --filter @namsu/web build
+
+      - name: 배포
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/web
+          command: deploy

@@ -35,7 +35,11 @@ adminContent.get('/pages', async (c) => {
 
 adminContent.get('/pages/:id{[0-9]+}', async (c) => {
   const db = createDb(c.env.DB);
-  const [row] = await db.select().from(pages).where(eq(pages.id, Number(c.req.param('id')))).limit(1);
+  const [row] = await db
+    .select()
+    .from(pages)
+    .where(eq(pages.id, Number(c.req.param('id'))))
+    .limit(1);
   if (!row) throw ApiError.notFound('페이지를 찾을 수 없습니다.');
   return ok(c, row);
 });
@@ -54,7 +58,8 @@ adminContent.post('/pages', zValidator('json', pageInput), async (c) => {
       contentHtml: renderMarkdown(input.content),
       status,
       // 스키마 CHECK 가 발행/예약 상태에 시각을 요구한다.
-      publishedAt: status === 'published' || status === 'scheduled' ? Math.floor(Date.now() / 1000) : null,
+      publishedAt:
+        status === 'published' || status === 'scheduled' ? Math.floor(Date.now() / 1000) : null,
       showInNav: input.showInNav ?? false,
       navLabel: input.navLabel ?? null,
       sortOrder: input.sortOrder ?? 0,
@@ -127,8 +132,14 @@ const projectInput = z.object({
   demoUrl: z.string().trim().max(2000).nullish(),
   techStack: z.array(z.string().trim().min(1).max(40)).max(30).optional(),
   role: z.string().trim().max(100).nullish(),
-  startedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD 형식이어야 합니다.').nullish(),
-  endedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD 형식이어야 합니다.').nullish(),
+  startedOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD 형식이어야 합니다.')
+    .nullish(),
+  endedOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD 형식이어야 합니다.')
+    .nullish(),
   isFeatured: z.boolean().optional(),
   isPublished: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
@@ -168,47 +179,56 @@ adminContent.post('/projects', zValidator('json', projectInput), async (c) => {
   return created(c, row);
 });
 
-adminContent.patch('/projects/:id{[0-9]+}', zValidator('json', projectInput.partial()), async (c) => {
-  const db = createDb(c.env.DB);
-  const id = Number(c.req.param('id'));
-  const input = c.req.valid('json');
+adminContent.patch(
+  '/projects/:id{[0-9]+}',
+  zValidator('json', projectInput.partial()),
+  async (c) => {
+    const db = createDb(c.env.DB);
+    const id = Number(c.req.param('id'));
+    const input = c.req.valid('json');
 
-  const [current] = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
-  if (!current) throw ApiError.notFound('프로젝트를 찾을 수 없습니다.');
+    const [current] = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+    if (!current) throw ApiError.notFound('프로젝트를 찾을 수 없습니다.');
 
-  const description = input.description ?? current.description;
+    const description = input.description ?? current.description;
 
-  const [row] = await db
-    .update(projects)
-    .set({
-      ...(input.slug ? { slug: slugify(input.slug) } : {}),
-      title: input.title ?? current.title,
-      summary: input.summary === undefined ? current.summary : input.summary,
-      description,
-      ...(input.description !== undefined ? { descriptionHtml: renderMarkdown(description) } : {}),
-      thumbnailUrl: input.thumbnailUrl === undefined ? current.thumbnailUrl : input.thumbnailUrl,
-      repoUrl: input.repoUrl === undefined ? current.repoUrl : input.repoUrl,
-      demoUrl: input.demoUrl === undefined ? current.demoUrl : input.demoUrl,
-      techStack: input.techStack ?? current.techStack,
-      role: input.role === undefined ? current.role : input.role,
-      startedOn: input.startedOn === undefined ? current.startedOn : input.startedOn,
-      endedOn: input.endedOn === undefined ? current.endedOn : input.endedOn,
-      isFeatured: input.isFeatured ?? current.isFeatured,
-      isPublished: input.isPublished ?? current.isPublished,
-      sortOrder: input.sortOrder ?? current.sortOrder,
-    })
-    .where(eq(projects.id, id))
-    .returning();
+    const [row] = await db
+      .update(projects)
+      .set({
+        ...(input.slug ? { slug: slugify(input.slug) } : {}),
+        title: input.title ?? current.title,
+        summary: input.summary === undefined ? current.summary : input.summary,
+        description,
+        ...(input.description !== undefined
+          ? { descriptionHtml: renderMarkdown(description) }
+          : {}),
+        thumbnailUrl: input.thumbnailUrl === undefined ? current.thumbnailUrl : input.thumbnailUrl,
+        repoUrl: input.repoUrl === undefined ? current.repoUrl : input.repoUrl,
+        demoUrl: input.demoUrl === undefined ? current.demoUrl : input.demoUrl,
+        techStack: input.techStack ?? current.techStack,
+        role: input.role === undefined ? current.role : input.role,
+        startedOn: input.startedOn === undefined ? current.startedOn : input.startedOn,
+        endedOn: input.endedOn === undefined ? current.endedOn : input.endedOn,
+        isFeatured: input.isFeatured ?? current.isFeatured,
+        isPublished: input.isPublished ?? current.isPublished,
+        sortOrder: input.sortOrder ?? current.sortOrder,
+      })
+      .where(eq(projects.id, id))
+      .returning();
 
-  await audit(db, c.get('identity'), 'project.update', 'project', id);
-  return ok(c, row);
-});
+    await audit(db, c.get('identity'), 'project.update', 'project', id);
+    return ok(c, row);
+  },
+);
 
 adminContent.delete('/projects/:id{[0-9]+}', async (c) => {
   const db = createDb(c.env.DB);
   const id = Number(c.req.param('id'));
 
-  const result = await db.delete(projects).where(eq(projects.id, id)).returning({ id: projects.id });
+  const result = await db
+    .delete(projects)
+    .where(eq(projects.id, id))
+    .returning({ id: projects.id });
   if (result.length === 0) throw ApiError.notFound('프로젝트를 찾을 수 없습니다.');
 
   await audit(db, c.get('identity'), 'project.delete', 'project', id);

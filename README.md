@@ -7,11 +7,11 @@
 
 ## 구성
 
-| 도메인 | 앱 | 스택 |
-|---|---|---|
-| `www.namsu.kim` | [`apps/web`](apps/web) | Astro — 공개 사이트 |
+| 도메인            | 앱                         | 스택                            |
+| ----------------- | -------------------------- | ------------------------------- |
+| `www.namsu.kim`   | [`apps/web`](apps/web)     | Astro — 공개 사이트             |
 | `admin.namsu.kim` | [`apps/admin`](apps/admin) | Vite + React SPA — 글 작성/관리 |
-| `api.namsu.kim` | [`apps/api`](apps/api) | Hono — REST API |
+| `api.namsu.kim`   | [`apps/api`](apps/api)     | Hono — REST API                 |
 
 전부 Cloudflare Workers 위에서 돌아간다. 데이터는 D1(SQLite), 이미지는 R2,
 관리자 인증은 Cloudflare Access, 봇 차단은 Turnstile 을 쓴다.
@@ -29,7 +29,8 @@
                               └─────────────────────┘
 ```
 
-자세한 설계 배경과 선택 이유는 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 참고.
+- 설계 배경과 버린 선택지: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- 처음 배포하기: [docs/SETUP.md](docs/SETUP.md)
 
 ## 왜 이 구성인가
 
@@ -105,6 +106,19 @@ pnpm --filter @namsu/api test:e2e   # 종단 (라우팅·D1·트리거·레이�
 ## 배포
 
 `main` 에 푸시하면 GitHub Actions 가 변경된 앱만 골라 배포한다.
+D1 마이그레이션은 API 배포보다 먼저 돈다 — 새 코드가 아직 없는 컬럼을 읽으면 바로 깨지기 때문이다.
+
+처음 한 번은 Cloudflare 쪽 설정이 필요하다. [docs/SETUP.md](docs/SETUP.md) 참고.
+
+## 관리자
+
+`admin.namsu.kim` 은 Cloudflare Access 뒤에 있다.
+비밀번호도 세션도 이 저장소에 없다 — Access 가 신원 확인을 끝내고 서명된 JWT 를 넘기면
+API 는 그 서명만 검증한다.
+
+관리자 화면은 API 를 직접 부르지 않고 자기 오리진의 `/api/*` 로 요청한다.
+`admin.namsu.kim` 과 `api.namsu.kim` 은 다른 오리진이라 Access 쿠키가 공유되지 않기 때문이다.
+관리자 Worker 가 그 요청을 받아 Access 가 주입한 JWT 헤더와 함께 API 로 넘긴다.
 
 ## 라이선스
 

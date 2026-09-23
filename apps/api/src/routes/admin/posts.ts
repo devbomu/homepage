@@ -55,7 +55,8 @@ async function slugTaken(db: Db, slug: string, excludeId?: number): Promise<bool
 async function assertTagsExist(db: Db, tagIds: number[]): Promise<void> {
   if (tagIds.length === 0) return;
   const rows = await db.select({ id: tags.id }).from(tags).where(inArray(tags.id, tagIds));
-  if (rows.length !== tagIds.length) throw ApiError.badRequest('존재하지 않는 태그가 포함되어 있습니다.');
+  if (rows.length !== tagIds.length)
+    throw ApiError.badRequest('존재하지 않는 태그가 포함되어 있습니다.');
 }
 
 /**
@@ -81,7 +82,8 @@ function resolvePublishedAt(
   current: number | null,
 ): number | null {
   if (publishedAt !== undefined && publishedAt !== null) return publishedAt;
-  if (status === 'published' || status === 'scheduled') return current ?? Math.floor(Date.now() / 1000);
+  if (status === 'published' || status === 'scheduled')
+    return current ?? Math.floor(Date.now() / 1000);
   return publishedAt === null ? null : current;
 }
 
@@ -183,7 +185,8 @@ adminPosts.patch('/:id{[0-9]+}', validate, async (c) => {
       seriesOrder: seriesId ? (input.seriesOrder ?? current.seriesOrder) : null,
       status,
       publishedAt: resolvePublishedAt(status, input.publishedAt, current.publishedAt),
-      coverImageUrl: input.coverImageUrl === undefined ? current.coverImageUrl : input.coverImageUrl,
+      coverImageUrl:
+        input.coverImageUrl === undefined ? current.coverImageUrl : input.coverImageUrl,
       allowComments: input.allowComments ?? current.allowComments,
       isPinned: input.isPinned ?? current.isPinned,
       metaTitle: input.metaTitle === undefined ? current.metaTitle : input.metaTitle,

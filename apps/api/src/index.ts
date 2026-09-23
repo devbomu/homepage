@@ -24,7 +24,9 @@ app.use('*', securityHeaders);
  * 허용 목록은 www / admin 두 오리진뿐이고, 와일드카드는 쓰지 않는다.
  */
 app.use('*', async (c, next) => {
-  const allowed = [c.env.SITE_URL, c.env.ADMIN_URL, ...parseList(c.env.ALLOWED_ORIGINS)].filter(Boolean);
+  const allowed = [c.env.SITE_URL, c.env.ADMIN_URL, ...parseList(c.env.ALLOWED_ORIGINS)].filter(
+    Boolean,
+  );
   const origin = c.req.header('Origin');
   const isAllowed = origin != null && allowed.includes(origin);
 

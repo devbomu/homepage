@@ -118,7 +118,13 @@ export async function getDescendantCategoryIds(db: Db, path: string): Promise<nu
  */
 export async function createCategory(
   db: Db,
-  input: { parentId: number | null; slug: string; name: string; description?: string | null; sortOrder?: number },
+  input: {
+    parentId: number | null;
+    slug: string;
+    name: string;
+    description?: string | null;
+    sortOrder?: number;
+  },
 ) {
   let parentPath: string | null = null;
   let depth = 0;
@@ -163,7 +169,13 @@ export async function createCategory(
 export async function updateCategory(
   db: Db,
   id: number,
-  input: { parentId?: number | null; slug?: string; name?: string; description?: string | null; sortOrder?: number },
+  input: {
+    parentId?: number | null;
+    slug?: string;
+    name?: string;
+    description?: string | null;
+    sortOrder?: number;
+  },
 ) {
   const [current] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
   if (!current) throw ApiError.notFound('카테고리를 찾을 수 없습니다.');
@@ -180,7 +192,8 @@ export async function updateCategory(
     nextDepth = 0;
 
     if (nextParentId != null) {
-      if (nextParentId === id) throw ApiError.unprocessable('자기 자신을 상위로 지정할 수 없습니다.');
+      if (nextParentId === id)
+        throw ApiError.unprocessable('자기 자신을 상위로 지정할 수 없습니다.');
 
       const [parent] = await db
         .select({ path: categories.path, depth: categories.depth })
@@ -251,11 +264,16 @@ export async function deleteCategory(db: Db, id: number) {
     .limit(1);
 
   if (child) {
-    throw ApiError.conflict('하위 카테고리가 있어 삭제할 수 없습니다. 하위를 먼저 옮기거나 지워주세요.');
+    throw ApiError.conflict(
+      '하위 카테고리가 있어 삭제할 수 없습니다. 하위를 먼저 옮기거나 지워주세요.',
+    );
   }
 
   // 글은 ON DELETE SET NULL 이라 지워지지 않고 미분류가 된다.
-  const result = await db.delete(categories).where(eq(categories.id, id)).returning({ id: categories.id });
+  const result = await db
+    .delete(categories)
+    .where(eq(categories.id, id))
+    .returning({ id: categories.id });
   if (result.length === 0) throw ApiError.notFound('카테고리를 찾을 수 없습니다.');
 }
 

@@ -9,7 +9,10 @@ const { entries } = Astro.props;
 ---
 
 {entries.length > 1 && (
-  <nav class="frost-card sticky top-20 hidden max-h-[calc(100vh-6rem)] overflow-y-auto p-4 lg:block" aria-label="목차">
+  <nav
+    class="frost-card sticky top-20 hidden max-h-[calc(100vh-6rem)] overflow-y-auto p-4 lg:block"
+    aria-label="목차"
+  >
     <p class="mb-2 text-sm font-semibold">목차</p>
     <ul class="space-y-1 text-sm">
       {entries.map((entry) => (

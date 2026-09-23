@@ -38,7 +38,9 @@ const { post, featured = false } = Astro.props;
     </div>
 
     <h2 class:list={['font-bold leading-snug', featured ? 'text-2xl' : 'text-lg']}>
-      <a href={postUrl(post.slug)} class="link link-hover">{post.title}</a>
+      <a href={postUrl(post.slug)} class="link link-hover">
+        {post.title}
+      </a>
     </h2>
 
     {post.summary && (

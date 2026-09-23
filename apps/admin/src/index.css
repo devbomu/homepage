@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+@plugin "@tailwindcss/typography";
+@plugin "daisyui" {
+  themes:
+    winter --default,
+    dracula --prefersdark;
+}
+
+@layer base {
+  html {
+    font-family:
+      'Pretendard Variable',
+      Pretendard,
+      -apple-system,
+      BlinkMacSystemFont,
+      system-ui,
+      'Apple SD Gothic Neo',
+      'Noto Sans KR',
+      sans-serif;
+    word-break: keep-all;
+  }
+
+  body {
+    @apply bg-base-200 text-base-content;
+  }
+
+  :focus-visible {
+    @apply outline-primary outline-2 outline-offset-2;
+  }
+}
+
+/* 마크다운 미리보기 영역. 공개 사이트와 같은 결로 보이게 맞춘다. */
+.preview {
+  @apply prose prose-sm max-w-none;
+
+  pre {
+    @apply bg-neutral text-neutral-content rounded-lg;
+  }
+
+  :not(pre) > code {
+    @apply bg-base-200 rounded px-1 py-0.5;
+    &::before,
+    &::after {
+      content: none;
+    }
+  }
+}

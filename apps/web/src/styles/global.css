@@ -21,8 +21,15 @@
     scroll-padding-top: 5rem;
     /* 한글 가독성: 시스템 한글 폰트를 우선 잡는다. */
     font-family:
-      'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
-      'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      'Pretendard Variable',
+      Pretendard,
+      -apple-system,
+      BlinkMacSystemFont,
+      system-ui,
+      'Apple SD Gothic Neo',
+      'Noto Sans KR',
+      'Malgun Gothic',
+      sans-serif;
     word-break: keep-all; /* 한국어는 어절 단위로 줄바꿈해야 읽기 편하다 */
     overflow-wrap: break-word;
   }
@@ -87,7 +94,7 @@
   }
 
   .heading-anchor {
-    @apply text-primary ml-2 opacity-0 no-underline transition-opacity;
+    @apply text-primary ml-2 no-underline opacity-0 transition-opacity;
   }
 
   pre {

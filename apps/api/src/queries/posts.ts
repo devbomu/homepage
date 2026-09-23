@@ -211,7 +211,10 @@ export async function listPinnedPosts(db: Db, limit = 3): Promise<PostSummary[]>
     .orderBy(desc(posts.publishedAt))
     .limit(limit);
 
-  const tagsByPost = await loadTags(db, rows.map((r) => r.id));
+  const tagsByPost = await loadTags(
+    db,
+    rows.map((r) => r.id),
+  );
   return rows.map((row) => toSummary(row, tagsByPost));
 }
 
@@ -332,7 +335,10 @@ export async function searchPosts(db: Db, query: string, limit: number): Promise
       .limit(limit);
   }
 
-  const tagsByPost = await loadTags(db, rows.map((r) => r.id));
+  const tagsByPost = await loadTags(
+    db,
+    rows.map((r) => r.id),
+  );
   return rows.map((row) => toSummary(row, tagsByPost));
 }
 
@@ -360,7 +366,10 @@ export async function getRelatedPosts(db: Db, postId: number, limit = 4): Promis
     .orderBy(desc(posts.publishedAt))
     .limit(limit);
 
-  const tagsByPost = await loadTags(db, rows.map((r) => r.id));
+  const tagsByPost = await loadTags(
+    db,
+    rows.map((r) => r.id),
+  );
   return rows.map((row) => toSummary(row, tagsByPost));
 }
 

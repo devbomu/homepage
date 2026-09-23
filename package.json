@@ -22,11 +22,12 @@
     "db:migrate:remote": "pnpm --filter @namsu/db migrate:remote",
     "db:seed:local": "pnpm --filter @namsu/db seed:local",
     "db:studio": "pnpm --filter @namsu/db studio",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml,sql}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yaml,yml,sql}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,mjs,astro,json,md,yaml,yml,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mjs,astro,json,md,yaml,yml,css}\""
   },
   "devDependencies": {
     "prettier": "^3.6.2",
+    "prettier-plugin-astro": "^1.0.1",
     "prettier-plugin-tailwindcss": "^0.6.14",
     "turbo": "^2.5.8",
     "typescript": "^5.9.3"

@@ -13,16 +13,25 @@ const year = new Date().getFullYear();
   <div class="content-width flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
     <div>
       <p class="font-semibold">{siteTitle}</p>
-      <p class="text-base-content/60 text-sm">© {year} {author}</p>
+      <p class="text-base-content/60 text-sm">
+        © {year} {author}
+      </p>
     </div>
 
     <div class="flex items-center gap-4 text-sm">
       {Object.entries(social).map(([name, url]) => (
-        <a href={url} class="link link-hover capitalize" rel="me noopener noreferrer" target="_blank">
+        <a
+          href={url}
+          class="link link-hover capitalize"
+          rel="me noopener noreferrer"
+          target="_blank"
+        >
           {name}
         </a>
       ))}
-      <a href="/rss.xml" class="link link-hover">RSS</a>
+      <a href="/rss.xml" class="link link-hover">
+        RSS
+      </a>
     </div>
   </div>
 </footer>

@@ -27,12 +27,19 @@ const period = (project: Project) => {
       {projects.map((project) => (
         <article id={project.slug} class="frost-card scroll-mt-20 overflow-hidden">
           {project.thumbnailUrl && (
-            <img src={project.thumbnailUrl} alt="" class="aspect-[16/9] w-full object-cover" loading="lazy" />
+            <img
+              src={project.thumbnailUrl}
+              alt=""
+              class="aspect-[16/9] w-full object-cover"
+              loading="lazy"
+            />
           )}
           <div class="space-y-3 p-5">
             <div class="flex items-start justify-between gap-2">
               <h2 class="text-lg font-bold">{project.title}</h2>
-              {project.isFeatured && <span class="badge badge-primary badge-sm shrink-0">대표</span>}
+              {project.isFeatured && (
+                <span class="badge badge-primary badge-sm shrink-0">대표</span>
+              )}
             </div>
 
             {period(project) && (
@@ -46,18 +53,30 @@ const period = (project: Project) => {
 
             {project.techStack.length > 0 && (
               <div class="flex flex-wrap gap-1">
-                {project.techStack.map((tech) => <span class="badge badge-ghost badge-sm">{tech}</span>)}
+                {project.techStack.map((tech) => (
+                  <span class="badge badge-ghost badge-sm">{tech}</span>
+                ))}
               </div>
             )}
 
             <div class="flex gap-2 pt-1">
               {project.repoUrl && (
-                <a href={project.repoUrl} class="btn btn-outline btn-xs" target="_blank" rel="noopener noreferrer">
+                <a
+                  href={project.repoUrl}
+                  class="btn btn-outline btn-xs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   저장소
                 </a>
               )}
               {project.demoUrl && (
-                <a href={project.demoUrl} class="btn btn-primary btn-xs" target="_blank" rel="noopener noreferrer">
+                <a
+                  href={project.demoUrl}
+                  class="btn btn-primary btn-xs"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   보러 가기
                 </a>
               )}

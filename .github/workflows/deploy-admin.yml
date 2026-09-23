@@ -1,0 +1,41 @@
+name: 배포 · 관리자
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/admin/**'
+      - '.github/workflows/deploy-admin.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-admin
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: 빌드
+        run: pnpm --filter @namsu/admin build
+
+      - name: 배포
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/admin
+          command: deploy

@@ -187,10 +187,7 @@ export const posts = sqliteTable(
       'posts_schedule_ck',
       sql`${t.status} not in ('published','scheduled') or ${t.publishedAt} is not null`,
     ),
-    check(
-      'posts_series_order_ck',
-      sql`${t.seriesId} is not null or ${t.seriesOrder} is null`,
-    ),
+    check('posts_series_order_ck', sql`${t.seriesId} is not null or ${t.seriesOrder} is null`),
   ],
 );
 
@@ -284,10 +281,7 @@ export const comments = sqliteTable(
     check('comments_author_ck', sql`length(${t.authorName}) between 1 and 50`),
     check('comments_status_ck', sql`${t.status} in ('pending','approved','spam','deleted')`),
     check('comments_not_own_parent_ck', sql`${t.parentId} is null or ${t.parentId} <> ${t.id}`),
-    check(
-      'comments_email_ck',
-      sql`${t.authorEmail} is null or ${t.authorEmail} glob '*?@?*.?*'`,
-    ),
+    check('comments_email_ck', sql`${t.authorEmail} is null or ${t.authorEmail} glob '*?@?*.?*'`),
   ],
 );
 
@@ -301,10 +295,7 @@ export const postViewDaily = sqliteTable(
     day: text('day').notNull(), // 'YYYY-MM-DD'
     views: integer('views').notNull().default(0),
   },
-  (t) => [
-    primaryKey({ columns: [t.postId, t.day] }),
-    index('post_view_daily_day_idx').on(t.day),
-  ],
+  (t) => [primaryKey({ columns: [t.postId, t.day] }), index('post_view_daily_day_idx').on(t.day)],
 );
 
 // ---------------------------------------------------------------------------

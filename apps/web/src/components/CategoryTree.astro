@@ -23,7 +23,9 @@ function isOnActiveBranch(node: CategoryNode): boolean {
       {node.children.length > 0 ? (
         <details open={isOnActiveBranch(node)}>
           <summary class:list={[activePath === node.path && 'active font-semibold']}>
-            <a href={categoryUrl(node.path)} class="flex-1">{node.name}</a>
+            <a href={categoryUrl(node.path)} class="flex-1">
+              {node.name}
+            </a>
             <span class="badge badge-ghost badge-xs">{node.postCount}</span>
           </summary>
           <Astro.self nodes={node.children} activePath={activePath} />

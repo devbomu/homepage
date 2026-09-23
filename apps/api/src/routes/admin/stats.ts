@@ -79,7 +79,10 @@ adminStats.get('/posts/:id{[0-9]+}', async (c) => {
       .where(eq(postViewDaily.postId, id))
       .orderBy(desc(postViewDaily.day))
       .limit(90),
-    db.select({ n: sql<number>`count(*)` }).from(postLikes).where(eq(postLikes.postId, id)),
+    db
+      .select({ n: sql<number>`count(*)` })
+      .from(postLikes)
+      .where(eq(postLikes.postId, id)),
   ]);
 
   return ok(c, { viewsByDay: daily.reverse(), likes: likes[0]?.n ?? 0 });

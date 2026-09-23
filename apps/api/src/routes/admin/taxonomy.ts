@@ -101,7 +101,11 @@ adminTaxonomy.post('/tags', zValidator('json', tagInput), async (c) => {
   const input = c.req.valid('json');
 
   const slug = await uniqueSlug(slugify(input.slug || input.name), async (candidate) => {
-    const [row] = await db.select({ id: tags.id }).from(tags).where(eq(tags.slug, candidate)).limit(1);
+    const [row] = await db
+      .select({ id: tags.id })
+      .from(tags)
+      .where(eq(tags.slug, candidate))
+      .limit(1);
     return row != null;
   });
 
@@ -167,7 +171,11 @@ adminTaxonomy.post('/series', zValidator('json', seriesInput), async (c) => {
   const input = c.req.valid('json');
 
   const slug = await uniqueSlug(slugify(input.slug || input.title), async (candidate) => {
-    const [row] = await db.select({ id: series.id }).from(series).where(eq(series.slug, candidate)).limit(1);
+    const [row] = await db
+      .select({ id: series.id })
+      .from(series)
+      .where(eq(series.slug, candidate))
+      .limit(1);
     return row != null;
   });
 

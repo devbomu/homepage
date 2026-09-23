@@ -1,6 +1,6 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - 'apps/*'
+  - 'packages/*'
 
 allowBuilds:
   '@parcel/watcher': set this to true or false
@@ -14,4 +14,4 @@ onlyBuiltDependencies:
   - esbuild
   - workerd
   - sharp
-  - "@tailwindcss/oxide"
+  - '@tailwindcss/oxide'
