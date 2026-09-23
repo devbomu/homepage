@@ -9,6 +9,15 @@ import { defineMiddleware } from 'astro:middleware';
  * 미들웨어는 렌더 전에 돌고 응답 전체를 감싸므로 확실하게 적용된다.
  */
 
+/**
+ * 대표 호스트. 사이트맵·canonical·RSS 가 모두 이 주소를 쓴다(astro.config 의 site).
+ * apex 로 들어온 요청을 여기로 넘겨야 검색엔진이 같은 글을 두 주소로 세지 않는다.
+ */
+const CANONICAL_HOST = 'www.namsu.kim';
+
+/** 대표 호스트로 넘겨야 하는 호스트들. localhost 는 건드리지 않는다. */
+const ALIAS_HOSTS = new Set(['namsu.kim']);
+
 /** 경로별 엣지 캐시 시간(초). 위에서부터 먼저 맞는 규칙을 쓴다. */
 const CACHE_RULES: [RegExp, number][] = [
   // 방문자마다 다르거나 색인할 이유가 없는 것은 캐시하지 않는다.
@@ -31,6 +40,17 @@ function cacheSecondsFor(pathname: string): number {
 }
 
 export const onRequest = defineMiddleware(async (context, next) => {
+  // --- 대표 호스트로 통일 ---
+  // 렌더보다 먼저 끝낸다. apex 로 들어온 요청까지 페이지를 그려줄 이유가 없다.
+  if (ALIAS_HOSTS.has(context.url.hostname)) {
+    const target = new URL(context.url);
+    target.hostname = CANONICAL_HOST;
+    // GET/HEAD 만 301 이다. 그 외 메서드에 301 을 주면 브라우저가 GET 으로
+    // 바꿔 다시 보내면서 본문을 잃는다. 308 은 메서드와 본문을 유지한다.
+    const isSafe = context.request.method === 'GET' || context.request.method === 'HEAD';
+    return context.redirect(target.toString(), isSafe ? 301 : 308);
+  }
+
   const response = await next();
   const { pathname } = context.url;
   const headers = response.headers;
