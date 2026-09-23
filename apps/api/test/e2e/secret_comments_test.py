@@ -6,7 +6,7 @@
      (글 페이지가 엣지에 캐시되므로 한 번 새면 다음 방문자에게 그대로 간다).
   2. 비밀 댓글에 달리는 답글은 누가 달든 서버가 비밀로 만든다
      (답글 한 줄만으로도 원래 질문이 짐작된다).
-  3. 공개 댓글 수에는 비밀 댓글이 들어가지 않는다.
+  3. 댓글 수는 화면에 보이는 줄 수와 같다 — 비밀 댓글도 잠금 표시로 한 줄 차지하므로 센다.
 """
 
 import hashlib, json, urllib.parse, urllib.request, urllib.error, sys, uuid
@@ -51,6 +51,7 @@ def comment(persona, body, secret=False, parent=None):
 
 
 def approve(cid):
+    """승인 없이 바로 공개되지만, 스팸 처리했다가 되돌리는 경우를 위해 남겨 둔다."""
     return call("PATCH", f"/v1/admin/comments/{cid}", {"status": "approved"})
 
 
@@ -78,14 +79,18 @@ s, b = comment("공개작성자", "공개 댓글입니다")
 check("공개 댓글 등록", s in (200, 201), f"{s} {b}")
 open_id = b["data"]["id"]
 check("공개 댓글은 isSecret=false", b["data"]["isSecret"] is False)
+check("승인 없이 바로 공개된다", b["data"]["status"] == "approved", str(b["data"]))
+check("응답에 화면이 그릴 값이 들어 있다",
+      b["data"]["authorName"] == "공개작성자" and b["data"]["body"] == "공개 댓글입니다",
+      str(b["data"]))
 
 s, b = comment("비밀작성자", SECRET_BODY, secret=True)
 check("비밀 댓글 등록", s in (200, 201), f"{s} {b}")
 secret_id = b["data"]["id"]
 check("비밀 댓글은 isSecret=true", b["data"]["isSecret"] is True)
+check("비밀 댓글은 응답에서도 본문을 비운다",
+      b["data"]["authorName"] == "" and b["data"]["body"] == "", str(b["data"]))
 check("비밀 댓글 안내문이 다르다", "비밀" in (b["data"].get("message") or ""), str(b["data"]))
-
-approve(open_id); approve(secret_id)
 
 print("\n=== 공개 응답 마스킹 ===")
 nodes = {n["id"]: n for n in flatten(tree())}
@@ -102,20 +107,19 @@ check("이메일 필드가 아예 없다", "authorEmail" not in raw)
 check("공개 댓글은 그대로 보인다", opn and opn["body"] == "공개 댓글입니다")
 
 print("\n=== 댓글 수 ===")
-check("비밀 댓글은 공개 댓글 수에 안 들어간다", comment_count() == 1, f"={comment_count()}")
+check("비밀 댓글도 댓글 수에 들어간다", comment_count() == 2, f"={comment_count()}")
 
 print("\n=== 답글 전파 ===")
 s, b = comment("눈치없는사람", "공개로 달아봅니다", secret=False, parent=secret_id)
 check("비밀 댓글에 답글 등록", s in (200, 201), f"{s} {b}")
 forced_id = b["data"]["id"]
 check("isSecret=false 로 보내도 서버가 비밀로 만든다", b["data"]["isSecret"] is True, str(b["data"]))
-approve(forced_id)
 
 s, b = call("POST", f"/v1/admin/comments/{open_id}/reply", {"body": "읽었습니다"})
 check("관리자 답글 201", s == 201, f"{s} {b}")
 owner_open = b["data"]["id"]
 check("공개 댓글의 관리자 답글은 공개", b["data"]["isSecret"] is False)
-check("관리자 답글은 승인 절차를 건너뛴다", b["data"]["status"] == "approved", str(b["data"]))
+check("관리자 답글도 바로 공개", b["data"]["status"] == "approved", str(b["data"]))
 
 s, b = call("POST", f"/v1/admin/comments/{secret_id}/reply", {"body": "확인했습니다"})
 check("비밀 댓글의 관리자 답글도 비밀", s == 201 and b["data"]["isSecret"] is True, f"{s} {b}")
@@ -137,21 +141,21 @@ check("관리자 공개 답글은 본문이 보인다", nodes[owner_open]["body"
 check("관리자 답글에 isOwner 표시", nodes[owner_open]["isOwner"] is True)
 check("관리자 답글에 이름이 붙는다", nodes[owner_open]["authorName"] not in ("", None),
       repr(nodes[owner_open]["authorName"]))
-check("비밀 3건 제외하고 공개 2건만 집계", comment_count() == 2, f"={comment_count()}")
+check("댓글 5건이 모두 집계된다", comment_count() == 5, f"={comment_count()}")
 
 print("\n=== 제약 ===")
 s, b = comment("깊이2", "여기까지는 된다", parent=owner_open)
 check("depth 2 답글은 허용", s in (200, 201), f"{s} {b}")
 deep_id = b["data"]["id"] if s in (200, 201) else None
 if deep_id:
-    approve(deep_id)
     s, b = comment("깊이3", "여기서는 막힌다", parent=deep_id)
     check("depth 3 답글은 422 로 거부", s == 422, f"{s} {b}")
 
-s, b = comment("대기자", "아직 승인 안 된 댓글")
-pending_id = b["data"]["id"]
-s, b = comment("성급한사람", "여기에 답글", parent=pending_id)
-check("미승인 댓글에는 답글을 못 단다", s == 400, f"{s} {b}")
+s, b = comment("스팸작성자", "스팸으로 내릴 댓글")
+spam_id = b["data"]["id"]
+call("PATCH", f"/v1/admin/comments/{spam_id}", {"status": "spam"})
+s, b = comment("성급한사람", "여기에 답글", parent=spam_id)
+check("스팸 처리된 댓글에는 답글을 못 단다", s == 400, f"{s} {b}")
 
 s, b = comment("엉뚱한사람", "없는 댓글에 답글", parent=999999)
 check("없는 댓글에 답글은 400", s == 400, f"{s} {b}")
@@ -159,10 +163,10 @@ check("없는 댓글에 답글은 400", s == 400, f"{s} {b}")
 print("\n=== 카운터 ===")
 before = comment_count()
 call("PATCH", f"/v1/admin/comments/{secret_id}", {"status": "spam"})
-check("비밀 댓글을 스팸 처리해도 공개 댓글 수는 그대로", comment_count() == before,
+check("비밀 댓글을 스팸 처리하면 댓글 수가 하나 준다", comment_count() == before - 1,
       f"{before} -> {comment_count()}")
 call("PATCH", f"/v1/admin/comments/{secret_id}", {"status": "approved"})
-check("다시 승인해도 공개 댓글 수는 그대로", comment_count() == before,
+check("되돌리면 댓글 수도 돌아온다", comment_count() == before,
       f"{before} -> {comment_count()}")
 
 print("\n=== 관리자 화면은 원문을 본다 ===")

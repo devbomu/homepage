@@ -16,14 +16,16 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
 
 <section id="comments" class="mt-12" aria-labelledby="comments-heading">
   <h2 id="comments-heading" class="mb-4 text-xl font-bold">
-    댓글 {commentCount > 0 && `(${commentCount})`}
+    댓글 ({commentCount})
   </h2>
 
   {comments.length === 0 && (
-    <p class="text-base-content/60 py-6 text-sm">아직 댓글이 없습니다. 첫 댓글을 남겨보세요.</p>
+    <p data-comment-empty class="text-base-content/60 py-6 text-sm">
+      아직 댓글이 없습니다. 첫 댓글을 남겨보세요.
+    </p>
   )}
 
-  <ol class="space-y-4">
+  <ol data-comment-list class="space-y-4">
     {comments.map((comment) => (
       <CommentItem comment={comment} allowComments={allowComments} />
     ))}
@@ -134,9 +136,12 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
 )}
 
 <script>
+  const section = document.querySelector<HTMLElement>('#comments');
   const form = document.querySelector<HTMLFormElement>('[data-comment-form]');
 
-  if (form) {
+  if (section && form) {
+    // 아래 함수들 안에서도 좁혀진 타입을 유지하려고 한 번 더 묶는다.
+    const root = section;
     const api = form.dataset.api!;
     const slug = encodeURIComponent(form.dataset.slug!);
     const message = form.querySelector<HTMLElement>('[data-comment-message]')!;
@@ -145,7 +150,14 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
     const bannerLabel = form.querySelector<HTMLElement>('[data-reply-label]')!;
     const secretToggle = form.querySelector<HTMLInputElement>('[data-secret-toggle]')!;
     const secretNote = form.querySelector<HTMLElement>('[data-secret-note]')!;
+    const heading = document.querySelector<HTMLElement>('#comments-heading')!;
+    const rootList = section.querySelector<HTMLOListElement>('[data-comment-list]')!;
+    const emptyNotice = section.querySelector<HTMLElement>('[data-comment-empty]');
     const formHome = form.parentElement!;
+
+    /** 서버의 CommentItem.astro 와 같은 값. 둘이 어긋나면 서버가 422 로 막는다. */
+    const MAX_REPLY_DEPTH = 2;
+    const SECRET_NOTE = '내용은 블로그 주인만 봅니다. 답장을 받으려면 이메일을 남겨 주세요.';
 
     let parentId: number | null = null;
 
@@ -158,32 +170,118 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
       parentId = null;
       banner.classList.add('hidden');
       secretToggle.disabled = false;
-      secretNote.textContent = '내용은 블로그 주인만 봅니다. 답장을 받으려면 이메일을 남겨 주세요.';
+      secretNote.textContent = SECRET_NOTE;
       formHome.appendChild(form);
     };
 
-    // 답글 버튼: 폼을 대상 댓글 아래로 옮긴다.
-    // 댓글마다 폼을 두지 않아 마크업이 가볍고, 입력값도 유지된다.
-    for (const button of document.querySelectorAll<HTMLElement>('[data-reply-to]')) {
-      button.addEventListener('click', () => {
-        parentId = Number(button.dataset.replyTo);
-        banner.classList.remove('hidden');
-        bannerLabel.textContent = '이 댓글에 답글을 답니다';
+    /**
+     * 답글 버튼은 위임으로 받는다.
+     * 방금 올린 댓글에도 버튼이 생기므로, 붙일 때마다 리스너를 매는 대신
+     * 영역 하나에서 받는 편이 확실하다.
+     */
+    section.addEventListener('click', (event) => {
+      const button = (event.target as HTMLElement).closest<HTMLElement>('[data-reply-to]');
+      if (!button) return;
 
-        // 비밀 댓글의 답글은 서버가 강제로 비밀로 만든다.
-        // 선택지를 열어두면 공개로 달 수 있다고 오해하게 된다.
-        if (button.dataset.replySecret === 'true') {
-          secretToggle.checked = true;
-          secretToggle.disabled = true;
-          secretNote.textContent = '비밀 댓글의 답글은 항상 비밀입니다.';
-        }
+      parentId = Number(button.dataset.replyTo);
+      banner.classList.remove('hidden');
+      bannerLabel.textContent = '이 댓글에 답글을 답니다';
 
-        button.closest('li')?.appendChild(form);
-        form.querySelector<HTMLTextAreaElement>('#comment-body')?.focus();
-      });
-    }
+      // 비밀 댓글의 답글은 서버가 강제로 비밀로 만든다.
+      // 선택지를 열어두면 공개로 달 수 있다고 오해하게 된다.
+      if (button.dataset.replySecret === 'true') {
+        secretToggle.checked = true;
+        secretToggle.disabled = true;
+        secretNote.textContent = '비밀 댓글의 답글은 항상 비밀입니다.';
+      }
+
+      button.closest('li')?.appendChild(form);
+      form.querySelector<HTMLTextAreaElement>('#comment-body')?.focus();
+    });
 
     form.querySelector('[data-reply-cancel]')?.addEventListener('click', resetReply);
+
+    const el = (tag: string, className?: string, text?: string) => {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      // 본문은 방문자가 쓴 값이다. 반드시 textContent 로만 넣는다.
+      if (text != null) node.textContent = text;
+      return node;
+    };
+
+    interface Created {
+      id: number;
+      parentId: number | null;
+      authorName: string;
+      body: string;
+      isSecret: boolean;
+    }
+
+    /** 서버가 그리는 CommentItem.astro 와 같은 모양의 <li> 를 만든다. */
+    function renderComment(data: Created, depth: number): HTMLLIElement {
+      const li = document.createElement('li');
+      if (depth === 0) li.className = 'frost-card p-4';
+
+      if (data.isSecret) {
+        const row = el('div', 'text-base-content/50 flex items-center gap-2 text-sm');
+        const lock = el('span', undefined, '🔒');
+        lock.setAttribute('aria-hidden', 'true');
+        row.append(
+          lock,
+          el('span', undefined, '비밀 댓글입니다'),
+          el('time', 'text-xs', '방금 전'),
+        );
+        li.append(row);
+      } else {
+        const row = el('div', 'flex flex-wrap items-baseline gap-2');
+        row.append(
+          el('span', 'font-semibold', data.authorName),
+          el('time', 'text-base-content/50 text-xs', '방금 전'),
+        );
+        li.append(row, el('p', 'mt-2 text-sm whitespace-pre-wrap', data.body));
+      }
+
+      // 비밀 댓글에는 답글 버튼을 달지 않는다 (CommentItem.astro 와 같은 규칙).
+      // 읽지도 못하는 글에 답글을 달면 아무도 못 읽는 가지만 생긴다.
+      if (!data.isSecret && depth < MAX_REPLY_DEPTH) {
+        const button = el('button', 'btn btn-ghost btn-xs mt-2 px-1', '답글') as HTMLButtonElement;
+        button.type = 'button';
+        button.dataset.replyTo = String(data.id);
+        button.dataset.replySecret = data.isSecret ? 'true' : 'false';
+        li.append(button);
+      }
+      return li;
+    }
+
+    /**
+     * 올린 댓글을 새로고침 없이 화면에 끼워 넣는다.
+     * 글 페이지는 엣지에 캐시되므로 다시 받아 봐도 방금 것이 없을 수 있다.
+     */
+    function insertComment(data: Created) {
+      const parentLi =
+        data.parentId == null
+          ? null
+          : (root
+              .querySelector<HTMLLIElement>(`[data-reply-to="${data.parentId}"]`)
+              ?.closest('li') ?? null);
+
+      if (!parentLi) {
+        rootList.append(renderComment(data, 0));
+      } else {
+        const depth = parentLi.closest('[data-comment-list]') === parentLi.parentElement ? 1 : 2;
+        let replies = parentLi.querySelector<HTMLOListElement>(':scope > ol');
+        if (!replies) {
+          replies = document.createElement('ol');
+          replies.className = 'border-base-300 mt-3 space-y-3 border-l-2 pl-4';
+          parentLi.append(replies);
+        }
+        replies.append(renderComment(data, depth));
+      }
+
+      emptyNotice?.remove();
+      const next = root.querySelectorAll('li').length;
+      heading.textContent = `댓글 (${next})`;
+    }
 
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -215,6 +313,7 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
 
         if (response.ok) {
           show(body?.data?.message ?? '댓글이 등록되었습니다.', 'ok');
+          if (body?.data?.status === 'approved') insertComment(body.data as Created);
           form.reset();
           resetReply();
           window.turnstile?.reset();
