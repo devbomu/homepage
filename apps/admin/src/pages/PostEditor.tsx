@@ -3,7 +3,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import { adminApi } from '../lib/api';
-import { POST_STATUSES, POST_STATUS_LABEL, type CategoryNode, type PostStatus } from '../lib/types';
+import {
+  POST_STATUSES,
+  POST_STATUS_LABEL,
+  PROTECTED_LISTINGS,
+  PROTECTED_LISTING_HINT,
+  PROTECTED_LISTING_LABEL,
+  type CategoryNode,
+  type PostStatus,
+  type ProtectedListing,
+} from '../lib/types';
 import { Card, ErrorNotice, Field, Loading, PageHeader } from '../components/ui';
 
 interface Draft {
@@ -22,6 +31,15 @@ interface Draft {
   isPinned: boolean;
   metaTitle: string;
   metaDescription: string;
+  /**
+   * 비밀번호 입력칸.
+   *  ''        — 건드리지 않음 (기존 설정 유지)
+   *  문자열    — 새 비밀번호로 잠근다
+   *  removePassword — 잠금을 푼다
+   */
+  password: string;
+  removePassword: boolean;
+  protectedListing: ProtectedListing;
 }
 
 const EMPTY: Draft = {
@@ -40,6 +58,9 @@ const EMPTY: Draft = {
   isPinned: false,
   metaTitle: '',
   metaDescription: '',
+  password: '',
+  removePassword: false,
+  protectedListing: 'title',
 };
 
 /** 트리를 들여쓰기된 평면 목록으로. select 에 계층을 보여주기 위함이다. */
@@ -113,10 +134,17 @@ export default function PostEditor() {
       isPinned: post.isPinned,
       metaTitle: post.metaTitle ?? '',
       metaDescription: post.metaDescription ?? '',
+      // 비밀번호는 서버가 내려주지 않는다. 걸려 있는지만 알 수 있다.
+      password: '',
+      removePassword: false,
+      protectedListing: post.protectedListing,
     });
   }, [existing.data]);
 
   const categoryOptions = useMemo(() => flatten(categories.data ?? []), [categories.data]);
+
+  /** 저장된 글에 이미 비밀번호가 걸려 있는지. 해시는 받지 않고 이 값만 온다. */
+  const locked = existing.data?.hasPassword ?? false;
 
   const payload = () => ({
     title: draft.title,
@@ -134,6 +162,9 @@ export default function PostEditor() {
     isPinned: draft.isPinned,
     metaTitle: draft.metaTitle || null,
     metaDescription: draft.metaDescription || null,
+    // 생략과 해제를 구분해야 한다. 빈 문자열을 늘 보내면 제목만 고쳐도 잠금이 풀린다.
+    password: draft.removePassword ? null : draft.password || undefined,
+    protectedListing: draft.protectedListing,
   });
 
   const save = useMutation({
@@ -352,6 +383,64 @@ export default function PostEditor() {
               />
               <span className="label-text text-sm">댓글 허용</span>
             </label>
+          </Card>
+
+          <Card className="space-y-3">
+            <h2 className="text-sm font-semibold">비밀글</h2>
+
+            {locked && !draft.removePassword && (
+              <p className="text-base-content/60 flex items-center gap-2 text-xs">
+                <span aria-hidden="true">🔒</span>
+                비밀번호가 걸려 있습니다. 새로 입력하면 바뀝니다.
+              </p>
+            )}
+
+            <Field
+              label={locked ? '비밀번호 변경' : '비밀번호'}
+              hint="입력하면 이 글은 비밀번호를 넣어야 본문이 열립니다. 비밀글은 댓글을 받지 않고 검색·RSS·사이트맵에서도 빠집니다."
+            >
+              <input
+                type="password"
+                className="input input-bordered input-sm w-full"
+                autoComplete="new-password"
+                maxLength={200}
+                placeholder={locked ? '그대로 두려면 비워 두세요' : '비워 두면 공개 글입니다'}
+                value={draft.password}
+                disabled={draft.removePassword}
+                onChange={(e) => update('password', e.target.value)}
+              />
+            </Field>
+
+            {locked && (
+              <label className="label cursor-pointer justify-start gap-3">
+                <input
+                  type="checkbox"
+                  className="toggle toggle-sm"
+                  checked={draft.removePassword}
+                  onChange={(e) => update('removePassword', e.target.checked)}
+                />
+                <span className="label-text text-sm">잠금 풀기 (공개 글로)</span>
+              </label>
+            )}
+
+            {(locked || draft.password) && !draft.removePassword && (
+              <Field
+                label="목록에 보이는 방식"
+                hint={PROTECTED_LISTING_HINT[draft.protectedListing]}
+              >
+                <select
+                  className="select select-bordered select-sm w-full"
+                  value={draft.protectedListing}
+                  onChange={(e) => update('protectedListing', e.target.value as ProtectedListing)}
+                >
+                  {PROTECTED_LISTINGS.map((value) => (
+                    <option key={value} value={value}>
+                      {PROTECTED_LISTING_LABEL[value]}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
           </Card>
 
           <Card className="space-y-4">

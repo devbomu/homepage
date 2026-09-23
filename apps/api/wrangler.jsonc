@@ -47,6 +47,15 @@
         "type": "ratelimit",
         "namespace_id": "1002",
         "simple": { "limit": 3, "period": 60 }
+      },
+      {
+        // 비밀글 비밀번호 시도. 무차별 대입을 막으려고 따로 뒀다 —
+        // 좋아요와 같은 통을 쓰면 한쪽이 다른 쪽의 예산을 태운다.
+        // 오타 몇 번은 통과하고 사전 공격은 못 돌릴 정도로 잡는다.
+        "name": "RATE_LIMIT_UNLOCK",
+        "type": "ratelimit",
+        "namespace_id": "1003",
+        "simple": { "limit": 10, "period": 60 }
       }
     ]
   },

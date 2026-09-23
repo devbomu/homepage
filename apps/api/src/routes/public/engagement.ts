@@ -78,12 +78,20 @@ publicEngagement.post('/:slug/view', async (c) => {
 publicEngagement.get('/:slug/comments', async (c) => {
   const db = createDb(c.env.DB);
   const [post] = await db
-    .select({ id: posts.id, allowComments: posts.allowComments })
+    .select({
+      id: posts.id,
+      allowComments: posts.allowComments,
+      passwordHash: posts.passwordHash,
+    })
     .from(posts)
     .where(and(eq(posts.slug, c.req.param('slug')), visiblePost))
     .limit(1);
 
   if (!post) throw ApiError.notFound('글을 찾을 수 없습니다.');
+
+  // 비밀글의 댓글은 아예 내려보내지 않는다. 본문을 잠가 놓고 그 아래 토론이
+  // 공개로 쌓이면 내용이 그대로 짐작된다.
+  if (post.passwordHash) return ok(c, { allowComments: false, comments: [] });
 
   return ok(c, {
     allowComments: post.allowComments,
@@ -134,11 +142,17 @@ publicEngagement.post(
       throw ApiError.forbidden('봇 검증에 실패했습니다. 새로고침 후 다시 시도해 주세요.');
 
     const [post] = await db
-      .select({ id: posts.id, slug: posts.slug, title: posts.title })
+      .select({
+        id: posts.id,
+        slug: posts.slug,
+        title: posts.title,
+        passwordHash: posts.passwordHash,
+      })
       .from(posts)
       .where(and(eq(posts.slug, c.req.param('slug')), visiblePost))
       .limit(1);
     if (!post) throw ApiError.notFound('글을 찾을 수 없습니다.');
+    if (post.passwordHash) throw ApiError.forbidden('비밀글에는 댓글을 쓸 수 없습니다.');
 
     if (await isDuplicateComment(db, visitorHash, post.id, input.body)) {
       throw ApiError.conflict('방금 같은 내용을 등록하셨습니다.');

@@ -26,6 +26,10 @@ export interface PostSummary {
   category: { slug: string; name: string; path: string } | null;
   series: { slug: string; title: string; order: number | null } | null;
   tags: PostTag[];
+  /** 비밀번호를 넣어야 본문이 열리는 글. */
+  isProtected: boolean;
+  /** 제목까지 가리기로 한 비밀글. 이때 title 은 빈 문자열이다. */
+  isMasked: boolean;
 }
 
 export interface PostDetail extends PostSummary {
@@ -118,6 +122,10 @@ export interface SiteSettings {
   'site.faviconUrl'?: string;
   /** 공유 카드 기본 이미지. 글에 자체 이미지가 없을 때 쓰인다. */
   'site.ogImageUrl'?: string;
+  /** Cloudflare Web Analytics 비콘 토큰. 비어 있으면 스크립트를 넣지 않는다. */
+  'site.cfBeaconToken'?: string;
+  /** GA4 측정 ID (G-XXXXXXXXXX). 비어 있으면 스크립트를 넣지 않는다. */
+  'site.gaMeasurementId'?: string;
   [key: string]: unknown;
 }
 

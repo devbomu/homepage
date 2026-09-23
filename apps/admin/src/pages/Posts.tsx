@@ -3,7 +3,12 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 
 import { adminApi } from '../lib/api';
-import { POST_STATUSES, POST_STATUS_LABEL, type PostStatus } from '../lib/types';
+import {
+  POST_STATUSES,
+  POST_STATUS_LABEL,
+  PROTECTED_LISTING_LABEL,
+  type PostStatus,
+} from '../lib/types';
 import { Card, EmptyState, ErrorNotice, formatDate, Loading, PageHeader } from '../components/ui';
 
 const STATUS_BADGE: Record<PostStatus, string> = {
@@ -95,10 +100,18 @@ export default function Posts() {
                     </Link>
                     <p className="text-base-content/40 truncate text-xs">{post.slug}</p>
                   </td>
-                  <td>
+                  <td className="space-x-1 whitespace-nowrap">
                     <span className={`badge badge-sm ${STATUS_BADGE[post.status]}`}>
                       {POST_STATUS_LABEL[post.status]}
                     </span>
+                    {post.hasPassword && (
+                      <span
+                        className="badge badge-neutral badge-sm"
+                        title={PROTECTED_LISTING_LABEL[post.protectedListing]}
+                      >
+                        🔒
+                      </span>
+                    )}
                   </td>
                   <td className="text-sm">{post.categoryName ?? '—'}</td>
                   <td className="text-base-content/60 text-xs">{formatDate(post.updatedAt)}</td>

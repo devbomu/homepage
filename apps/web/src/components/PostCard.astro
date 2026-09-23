@@ -9,6 +9,13 @@ interface Props {
 }
 
 const { post, featured = false } = Astro.props;
+
+/*
+ * 비밀글은 서버가 이미 요약·표지·읽는 시간을 비워서 내려준다.
+ * 여기서는 자물쇠만 붙이면 된다 — 가리는 판단을 화면마다 다시 하지 않는다.
+ * '제목까지 가림' 으로 둔 글은 title 이 빈 문자열로 온다.
+ */
+const cardTitle = post.isMasked ? '비밀글' : post.title;
 ---
 
 <article class:list={['frost-card overflow-hidden', featured && 'sm:col-span-2']}>
@@ -27,19 +34,31 @@ const { post, featured = false } = Astro.props;
   <div class="flex flex-col gap-3 p-5 sm:p-6">
     <div class="text-base-content/60 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
       {post.isPinned && <span class="badge badge-primary badge-sm">고정</span>}
+      {post.isProtected && (
+        <span class="badge badge-neutral badge-sm gap-1">
+          <span aria-hidden="true">🔒</span> 비밀글
+        </span>
+      )}
       {post.category && (
         <a href={categoryUrl(post.category.path)} class="link link-hover text-primary font-medium">
           {post.category.name}
         </a>
       )}
       <time datetime={toIso(post.publishedAt)}>{formatDate(post.publishedAt)}</time>
-      <span aria-hidden="true">·</span>
-      <span>{post.readingMinutes}분</span>
+      {!post.isProtected && (
+        <>
+          <span aria-hidden="true">·</span>
+          <span>{post.readingMinutes}분</span>
+        </>
+      )}
     </div>
 
     <h2 class:list={['font-bold leading-snug', featured ? 'text-2xl' : 'text-lg']}>
-      <a href={postUrl(post.slug)} class="link link-hover">
-        {post.title}
+      <a
+        href={postUrl(post.slug)}
+        class:list={['link link-hover', post.isMasked && 'text-base-content/50 italic']}
+      >
+        {cardTitle}
       </a>
     </h2>
 
@@ -66,7 +85,8 @@ const { post, featured = false } = Astro.props;
       <div class="text-base-content/50 flex shrink-0 items-center gap-3 text-xs">
         <span title="조회">👁 {formatCount(post.viewCount)}</span>
         <span title="좋아요">♥ {formatCount(post.likeCount)}</span>
-        <span title="댓글">💬 {formatCount(post.commentCount)}</span>
+        {/* 비밀글은 댓글을 받지 않으므로 숫자를 보여줄 것이 없다. */}
+        {!post.isProtected && <span title="댓글">💬 {formatCount(post.commentCount)}</span>}
       </div>
     </div>
   </div>

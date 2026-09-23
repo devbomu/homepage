@@ -15,6 +15,8 @@ export interface Bindings {
   MEDIA: R2Bucket;
   RATE_LIMIT_WRITE: RateLimiter;
   RATE_LIMIT_COMMENT: RateLimiter;
+  /** 비밀글 비밀번호 시도. 무차별 대입 방지. */
+  RATE_LIMIT_UNLOCK: RateLimiter;
 
   // --- wrangler.jsonc 의 vars (비밀 아님) ---
   ENVIRONMENT: string;

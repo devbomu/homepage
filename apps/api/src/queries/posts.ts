@@ -1,9 +1,18 @@
-import { categories, posts, postTags, series, tags, type Db, type PostStatus } from '@namsu/db';
+import {
+  categories,
+  posts,
+  postTags,
+  series,
+  tags,
+  type Db,
+  type PostStatus,
+  type ProtectedListing,
+} from '@namsu/db';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 
 import { renderMarkdown } from '../lib/markdown';
 import { type Cursor, slicePage } from '../lib/pagination';
-import { visiblePost } from './visibility';
+import { indexablePost, listablePost, visiblePost } from './visibility';
 
 export interface PostTag {
   slug: string;
@@ -26,6 +35,10 @@ export interface PostSummary {
   category: { slug: string; name: string; path: string } | null;
   series: { slug: string; title: string; order: number | null } | null;
   tags: PostTag[];
+  /** 비밀번호를 넣어야 본문이 열리는 글. */
+  isProtected: boolean;
+  /** 제목까지 가리기로 한 비밀글. 이때 title 은 빈 문자열로 내려간다. */
+  isMasked: boolean;
 }
 
 export interface PostDetail extends PostSummary {
@@ -57,6 +70,8 @@ const summaryColumns = {
   categoryPath: categories.path,
   seriesSlug: series.slug,
   seriesTitle: series.title,
+  passwordHash: posts.passwordHash,
+  protectedListing: posts.protectedListing,
 } as const;
 
 /**
@@ -85,29 +100,46 @@ interface SummaryRow {
   categoryPath: string | null;
   seriesSlug: string | null;
   seriesTitle: string | null;
+  passwordHash: string | null;
+  protectedListing: ProtectedListing;
 }
 
+/**
+ * 공개 응답으로 내보낼 형태로 바꾼다.
+ *
+ * 비밀글은 여기서 가린다. 목록 쿼리에서 걸러내지 않고 이 한 곳에서 비우는 이유는,
+ * 새 목록 화면을 만들 때마다 가리는 코드를 또 쓰다가 한 군데를 빠뜨리는 일을
+ * 막기 위해서다. 요약·표지는 본문의 일부나 마찬가지라 잠근 글에서는 내보내지 않는다.
+ */
 function toSummary(row: SummaryRow, tagsByPost: Map<number, PostTag[]>): PostSummary {
+  const isProtected = row.passwordHash != null;
+  const isMasked = isProtected && row.protectedListing === 'masked';
+
   return {
     id: row.id,
     slug: row.slug,
-    title: row.title,
-    summary: row.summary,
-    coverImageUrl: row.coverImageUrl,
+    title: isMasked ? '' : row.title,
+    summary: isProtected ? null : row.summary,
+    coverImageUrl: isProtected ? null : row.coverImageUrl,
     publishedAt: row.publishedAt,
-    readingMinutes: row.readingMinutes,
-    wordCount: row.wordCount,
+    readingMinutes: isProtected ? 0 : row.readingMinutes,
+    wordCount: isProtected ? 0 : row.wordCount,
     viewCount: row.viewCount,
     likeCount: row.likeCount,
     commentCount: row.commentCount,
     isPinned: row.isPinned,
-    category: row.categorySlug
-      ? { slug: row.categorySlug, name: row.categoryName!, path: row.categoryPath! }
-      : null,
-    series: row.seriesSlug
-      ? { slug: row.seriesSlug, title: row.seriesTitle!, order: row.seriesOrder }
-      : null,
-    tags: tagsByPost.get(row.id) ?? [],
+    // 제목까지 가리는 글은 분류도 흘리지 않는다. 카테고리 하나로도 내용이 좁혀진다.
+    category:
+      row.categorySlug && !isMasked
+        ? { slug: row.categorySlug, name: row.categoryName!, path: row.categoryPath! }
+        : null,
+    series:
+      row.seriesSlug && !isMasked
+        ? { slug: row.seriesSlug, title: row.seriesTitle!, order: row.seriesOrder }
+        : null,
+    tags: isMasked ? [] : (tagsByPost.get(row.id) ?? []),
+    isProtected,
+    isMasked,
   };
 }
 
@@ -135,9 +167,16 @@ async function loadTags(db: Db, postIds: number[]): Promise<Map<number, PostTag[
   return byPost;
 }
 
-/** 공개 글만 보이도록 하는 조건. 모든 공개 쿼리가 이걸 통과해야 한다. */
-/** 공개 글만 보이도록 하는 조건. 정의는 visibility.ts 한곳에 있다. */
+/**
+ * 공개 조건 셋. 정의는 visibility.ts 한곳에 있다.
+ *
+ *  publishedOnly — 상세 조회용. 직접 링크로 들어오면 비밀글도 잡힌다 (본문은 가린다).
+ *  listableOnly  — 목록용. '숨김' 으로 둔 비밀글이 빠진다.
+ *  indexableOnly — 색인·피드·검색·관련글용. 비밀글이 전부 빠진다.
+ */
 const publishedOnly = visiblePost;
+const listableOnly = listablePost;
+const indexableOnly = indexablePost;
 
 export interface ListOptions {
   limit: number;
@@ -154,7 +193,7 @@ export interface ListOptions {
  * OFFSET 을 쓰지 않는 이유는 pagination.ts 주석 참고.
  */
 export async function listPublishedPosts(db: Db, opts: ListOptions) {
-  const filters = [publishedOnly];
+  const filters = [listableOnly];
 
   if (opts.categoryIds?.length) filters.push(inArray(posts.categoryId, opts.categoryIds));
   if (opts.seriesId != null) filters.push(eq(posts.seriesId, opts.seriesId));
@@ -209,7 +248,7 @@ export async function listPinnedPosts(db: Db, limit = 3): Promise<PostSummary[]>
     .from(posts)
     .leftJoin(categories, eq(categories.id, posts.categoryId))
     .leftJoin(series, eq(series.id, posts.seriesId))
-    .where(and(publishedOnly, eq(posts.isPinned, true)))
+    .where(and(listableOnly, eq(posts.isPinned, true)))
     .orderBy(desc(posts.publishedAt))
     .limit(limit);
 
@@ -241,8 +280,31 @@ export async function getPublishedPostBySlug(db: Db, slug: string): Promise<Post
   if (!row) return null;
 
   const tagsByPost = await loadTags(db, [row.id]);
+  const summary = toSummary(row, tagsByPost);
+
+  /*
+   * 비밀글의 본문은 이 응답에 절대 싣지 않는다.
+   * 글 페이지는 엣지에 캐시되므로 "맞힌 사람에게만 다르게 그려주기" 가 성립하지 않는다 —
+   * 한 번 캐시에 실리면 그 응답이 다음 방문자에게 그대로 간다.
+   * 본문은 /v1/posts/:slug/unlock 이 no-store 로 따로 내려준다.
+   */
+  if (summary.isProtected) {
+    return {
+      ...summary,
+      contentHtml: null,
+      metaTitle: null,
+      metaDescription: null,
+      ogImageUrl: null,
+      // 비밀글은 댓글을 받지 않는다. 본문을 잠가 놓고 그 아래 토론이 공개로
+      // 쌓이면 내용이 그대로 짐작된다. 댓글마다 다시 잠금을 확인하는 것보다
+      // 아예 받지 않는 편이 확실하다.
+      allowComments: false,
+      updatedAt: row.updatedAt,
+    };
+  }
+
   return {
-    ...toSummary(row, tagsByPost),
+    ...summary,
     // 보통은 발행 시점에 렌더해 둔 HTML 을 그대로 쓴다.
     // 비어 있는 경우(시드 데이터, 직접 DB 에 넣은 글, 과거 렌더 실패)에는
     // 읽는 시점에 렌더한다. 글이 빈 화면으로 보이는 것보다 낫다.
@@ -255,7 +317,54 @@ export async function getPublishedPostBySlug(db: Db, slug: string): Promise<Post
   };
 }
 
-/** 글 상세의 이전/다음 글. */
+/**
+ * 비밀번호를 맞힌 사람에게 내려줄 본문.
+ * 호출부(routes)가 비밀번호나 토큰을 확인한 뒤에만 부른다.
+ */
+export async function getProtectedPostContent(db: Db, slug: string) {
+  const [row] = await db
+    .select({
+      id: posts.id,
+      title: posts.title,
+      summary: posts.summary,
+      contentHtml: posts.contentHtml,
+      content: posts.content,
+      coverImageUrl: posts.coverImageUrl,
+      readingMinutes: posts.readingMinutes,
+      wordCount: posts.wordCount,
+    })
+    .from(posts)
+    .where(and(publishedOnly, eq(posts.slug, slug)))
+    .limit(1);
+
+  if (!row) return null;
+
+  const tagsByPost = await loadTags(db, [row.id]);
+  return {
+    title: row.title,
+    summary: row.summary,
+    contentHtml: row.contentHtml ?? renderMarkdown(row.content),
+    coverImageUrl: row.coverImageUrl,
+    readingMinutes: row.readingMinutes,
+    wordCount: row.wordCount,
+    tags: tagsByPost.get(row.id) ?? [],
+  };
+}
+
+/** 비밀번호 확인에 필요한 최소 정보. */
+export async function getPostSecret(db: Db, slug: string) {
+  const [row] = await db
+    .select({ id: posts.id, passwordHash: posts.passwordHash })
+    .from(posts)
+    .where(and(publishedOnly, eq(posts.slug, slug)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * 글 상세의 이전/다음 글.
+ * 비밀글은 여기서 뺀다 — 이웃 글 링크로 제목이 새어나가면 잠근 의미가 없다.
+ */
 export async function getAdjacentPosts(db: Db, publishedAt: number, id: number) {
   const [previous, next] = await Promise.all([
     db
@@ -263,7 +372,7 @@ export async function getAdjacentPosts(db: Db, publishedAt: number, id: number) 
       .from(posts)
       .where(
         and(
-          publishedOnly,
+          indexableOnly,
           or(
             sql`${posts.publishedAt} < ${publishedAt}`,
             and(sql`${posts.publishedAt} = ${publishedAt}`, sql`${posts.id} < ${id}`),
@@ -277,7 +386,7 @@ export async function getAdjacentPosts(db: Db, publishedAt: number, id: number) 
       .from(posts)
       .where(
         and(
-          publishedOnly,
+          indexableOnly,
           or(
             sql`${posts.publishedAt} > ${publishedAt}`,
             and(sql`${posts.publishedAt} = ${publishedAt}`, sql`${posts.id} > ${id}`),
@@ -318,7 +427,7 @@ export async function searchPosts(db: Db, query: string, limit: number): Promise
     rows = await base
       .where(
         and(
-          publishedOnly,
+          indexableOnly,
           sql`${posts.id} in (select rowid from posts_fts where posts_fts match ${phrase} order by rank limit ${limit})`,
         ),
       )
@@ -329,7 +438,7 @@ export async function searchPosts(db: Db, query: string, limit: number): Promise
     rows = await base
       .where(
         and(
-          publishedOnly,
+          indexableOnly,
           sql`(${posts.title} like ${pattern} escape '\\' or ${posts.summary} like ${pattern} escape '\\')`,
         ),
       )
@@ -344,7 +453,7 @@ export async function searchPosts(db: Db, query: string, limit: number): Promise
   return rows.map((row) => toSummary(row, tagsByPost));
 }
 
-/** 같은 카테고리 또는 태그를 공유하는 글. */
+/** 같은 카테고리 또는 태그를 공유하는 글. 비밀글은 넣지 않는다. */
 export async function getRelatedPosts(db: Db, postId: number, limit = 4): Promise<PostSummary[]> {
   const rows = await db
     .select(summaryColumns)
@@ -353,7 +462,7 @@ export async function getRelatedPosts(db: Db, postId: number, limit = 4): Promis
     .leftJoin(series, eq(series.id, posts.seriesId))
     .where(
       and(
-        publishedOnly,
+        indexableOnly,
         sql`${posts.id} <> ${postId}`,
         sql`(
           ${posts.categoryId} = (select category_id from posts where id = ${postId})
@@ -407,6 +516,8 @@ export async function listAdminPosts(
       commentCount: posts.commentCount,
       likeCount: posts.likeCount,
       viewCount: posts.viewCount,
+      passwordHash: posts.passwordHash,
+      protectedListing: posts.protectedListing,
       categoryName: categories.name,
     })
     .from(posts)
@@ -415,7 +526,13 @@ export async function listAdminPosts(
     .orderBy(desc(posts.updatedAt), desc(posts.id))
     .limit(opts.limit + 1);
 
-  return slicePage(rows, opts.limit, (row) => ({ sortValue: row.updatedAt, id: row.id }));
+  // 해시는 목록에도 내보내지 않는다.
+  const masked = rows.map(({ passwordHash, ...rest }) => ({
+    ...rest,
+    hasPassword: passwordHash != null,
+  }));
+
+  return slicePage(masked, opts.limit, (row) => ({ sortValue: row.updatedAt, id: row.id }));
 }
 
 /** 관리자용 단건 조회. 초안·예약 글도 마크다운 원문까지 돌려준다. */
@@ -433,7 +550,9 @@ export async function getAdminPost(db: Db, id: number) {
     .innerJoin(tags, eq(tags.id, postTags.tagId))
     .where(eq(postTags.postId, id));
 
-  return { ...row, tags: tagRows };
+  // 해시는 관리자 화면에도 내보내지 않는다. 걸려 있는지만 알면 된다.
+  const { passwordHash, ...rest } = row;
+  return { ...rest, hasPassword: passwordHash != null, tags: tagRows };
 }
 
 /** 글의 태그를 통째로 교체한다. */

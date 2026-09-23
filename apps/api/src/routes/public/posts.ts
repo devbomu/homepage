@@ -1,12 +1,18 @@
 import { createDb } from '@namsu/db';
+import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
+import { z } from 'zod';
 
 import type { AppEnv } from '../../env';
 import { ApiError } from '../../lib/errors';
 import { decodeCursor, parseLimit } from '../../lib/pagination';
+import { issueUnlockToken, verifyPassword, verifyUnlockToken } from '../../lib/password';
+import { rateLimit } from '../../middleware/ratelimit';
 import { ok, paged } from '../../lib/response';
 import {
   getAdjacentPosts,
+  getPostSecret,
+  getProtectedPostContent,
   getPublishedPostBySlug,
   getRelatedPosts,
   listPinnedPosts,
@@ -93,6 +99,12 @@ publicPosts.get('/:slug', async (c) => {
   const post = await getPublishedPostBySlug(db, c.req.param('slug'));
   if (!post) throw ApiError.notFound('글을 찾을 수 없습니다.');
 
+  // 비밀글에는 관련 글도 이전/다음 글도 붙이지 않는다.
+  // 같은 카테고리·태그의 글이 줄줄이 나오면 잠근 글의 주제가 그대로 드러난다.
+  if (post.isProtected) {
+    return ok(c, { ...post, breadcrumb: [], related: [], previous: null, next: null });
+  }
+
   const [adjacent, related, breadcrumb] = await Promise.all([
     getAdjacentPosts(db, post.publishedAt ?? 0, post.id),
     getRelatedPosts(db, post.id),
@@ -101,3 +113,50 @@ publicPosts.get('/:slug', async (c) => {
 
   return ok(c, { ...post, breadcrumb, related, ...adjacent });
 });
+
+/**
+ * POST /v1/posts/:slug/unlock — 비밀글 본문.
+ *
+ * 비밀번호를 맞히면 본문을 내려주고, 다음 방문에 다시 묻지 않도록 서명 토큰을 준다.
+ * 응답은 절대 캐시하지 않는다 — 한 사람이 푼 본문이 캐시에 실리면
+ * 그다음 방문자에게 그대로 나간다.
+ *
+ * 무차별 대입은 레이트리밋으로 막는다. 맞았는지 틀렸는지 외에는 아무것도 알려주지 않는다.
+ */
+publicPosts.post(
+  '/:slug/unlock',
+  rateLimit((env) => env.RATE_LIMIT_UNLOCK, 'unlock'),
+  zValidator(
+    'json',
+    z.object({
+      password: z.string().min(1).max(200).optional(),
+      token: z.string().min(1).max(500).optional(),
+    }),
+  ),
+  async (c) => {
+    const db = createDb(c.env.DB);
+    const slug = c.req.param('slug');
+    const { password, token } = c.req.valid('json');
+
+    const post = await getPostSecret(db, slug);
+    if (!post) throw ApiError.notFound('글을 찾을 수 없습니다.');
+    if (!post.passwordHash) throw ApiError.badRequest('비밀글이 아닙니다.');
+
+    const secret = c.env.VISITOR_HASH_SALT;
+    const passed = token
+      ? await verifyUnlockToken(secret, post.id, token)
+      : password != null && (await verifyPassword(password, post.passwordHash));
+
+    if (!passed) {
+      // 토큰이 만료된 경우와 비밀번호가 틀린 경우를 구분해 알려줄 이유가 없다.
+      throw ApiError.forbidden('비밀번호가 맞지 않습니다.');
+    }
+
+    const content = await getProtectedPostContent(db, slug);
+    if (!content) throw ApiError.notFound('글을 찾을 수 없습니다.');
+
+    const issued = await issueUnlockToken(secret, post.id);
+    c.header('Cache-Control', 'private, no-store');
+    return ok(c, { ...content, token: issued.token, expiresAt: issued.expiresAt });
+  },
+);

@@ -41,3 +41,8 @@ echo
 echo "▶ 비밀 댓글 + 대댓글"
 reseed
 python3 "$(dirname "${BASH_SOURCE[0]}")/secret_comments_test.py"
+
+echo
+echo "▶ 비밀글"
+reseed
+python3 "$(dirname "${BASH_SOURCE[0]}")/protected_posts_test.py"

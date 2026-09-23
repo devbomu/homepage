@@ -28,3 +28,23 @@ export const visiblePage = and(
   inArray(pages.status, ['published', 'scheduled']),
   sql`${pages.publishedAt} <= unixepoch()`,
 );
+
+/**
+ * 목록에 실리는 조건.
+ *
+ * 비밀글 중 '숨김' 으로 둔 것은 여기서 빠진다 — 목록·카테고리·태그 어디에도
+ * 안 나오고, 직접 링크를 아는 사람만 들어온다.
+ */
+export const listablePost = and(
+  visiblePost,
+  sql`(${posts.passwordHash} is null or ${posts.protectedListing} <> 'hidden')`,
+);
+
+/**
+ * 색인·피드·검색에 실리는 조건.
+ *
+ * 비밀글은 노출 방식과 무관하게 전부 빠진다. 사이트맵·RSS·검색·관련글·이전다음글이
+ * 모두 이 조건을 쓴다. 제목만 보이기로 한 글이라도 RSS 로 흘러나가면
+ * 본문을 잠근 의미가 없다.
+ */
+export const indexablePost = and(visiblePost, isNull(posts.passwordHash));

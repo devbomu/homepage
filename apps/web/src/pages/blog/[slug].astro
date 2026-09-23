@@ -3,6 +3,7 @@ import Breadcrumb from '@components/Breadcrumb.astro';
 import Comments from '@components/Comments.astro';
 import LikeButton from '@components/LikeButton.astro';
 import PostCard from '@components/PostCard.astro';
+import ProtectedPost from '@components/ProtectedPost.astro';
 import TableOfContents from '@components/TableOfContents.astro';
 import BaseLayout from '@layouts/BaseLayout.astro';
 import { api, type CommentNode } from '@lib/api';
@@ -16,36 +17,63 @@ if (!post) return Astro.rewrite('/404');
 
 let comments: CommentNode[] = [];
 let allowComments = post.allowComments;
-try {
-  const result = await api.posts.comments(post.slug);
-  comments = result.data.comments ?? [];
-  allowComments = result.data.allowComments;
-} catch (error) {
-  console.error('댓글을 불러오지 못했습니다', error);
-}
+
+// 비밀글은 댓글을 받지 않는다 (API 도 빈 목록을 준다). 요청을 아낀다.
+if (!post.isProtected)
+  try {
+    const result = await api.posts.comments(post.slug);
+    comments = result.data.comments ?? [];
+    allowComments = result.data.allowComments;
+  } catch (error) {
+    console.error('댓글을 불러오지 못했습니다', error);
+  }
 
 // 제목에 앵커 id 를 심고 목차를 뽑는다. 서버에서 한 번만 한다.
+// 비밀글은 contentHtml 이 null 로 오므로 둘 다 빈 값이 된다.
 const { html, toc } = extractToc(post.contentHtml ?? '');
+
+/*
+ * 비밀글은 검색엔진에 넣지 않는다 (noindex). 목록에서 빼더라도 직접 링크가
+ * 어디엔가 걸리면 크롤러가 따라 들어온다.
+ * '제목까지 가림' 으로 둔 글은 title 이 빈 문자열로 오므로 여기서 대체한다.
+ */
+const displayTitle = post.isMasked ? '비밀글' : post.title;
 ---
 
 <BaseLayout
-  title={post.metaTitle ?? post.title}
-  description={post.metaDescription ?? post.summary ?? undefined}
-  ogImage={post.ogImageUrl ?? post.coverImageUrl}
+  title={post.isProtected ? displayTitle : (post.metaTitle ?? post.title)}
+  description={
+    post.isProtected
+      ? '비밀번호가 필요한 글입니다.'
+      : (post.metaDescription ?? post.summary ?? undefined)
+  }
+  ogImage={post.isProtected ? null : (post.ogImageUrl ?? post.coverImageUrl)}
   ogType="article"
   publishedAt={post.publishedAt}
+  noindex={post.isProtected}
 >
   <div class="grid gap-8 lg:grid-cols-[1fr_15rem]">
     <article class="min-w-0">
       <Breadcrumb items={post.breadcrumb} />
 
       <header class="mt-4 mb-8">
-        <h1 class="text-3xl leading-tight font-bold sm:text-4xl">{post.title}</h1>
+        <h1 data-post-title class="text-3xl leading-tight font-bold sm:text-4xl">
+          {displayTitle}
+        </h1>
 
         <div class="text-base-content/60 mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          {post.isProtected && (
+            <span class="badge badge-neutral badge-sm gap-1">
+              <span aria-hidden="true">🔒</span> 비밀글
+            </span>
+          )}
           <time datetime={toIso(post.publishedAt)}>{formatDate(post.publishedAt)}</time>
-          <span aria-hidden="true">·</span>
-          <span>{post.readingMinutes}분 읽기</span>
+          {!post.isProtected && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{post.readingMinutes}분 읽기</span>
+            </>
+          )}
           <span aria-hidden="true">·</span>
           <span>조회 {formatCount(post.viewCount)}</span>
           {post.category && (
@@ -76,45 +104,53 @@ const { html, toc } = extractToc(post.contentHtml ?? '');
         )}
       </header>
 
-      <!--
-        API 가 마크다운을 렌더해 넘긴 HTML 이다.
-        원시 HTML 은 서버에서 이스케이프되고 링크 스킴도 검사를 거친다
-        (apps/api/src/lib/markdown.ts 참고).
-      -->
-      <div class="prose prose-lg max-w-none" set:html={html} />
+      {post.isProtected ? (
+        <ProtectedPost slug={post.slug} />
+      ) : (
+        <Fragment>
+          {/*
+            API 가 마크다운을 렌더해 넘긴 HTML 이다.
+            원시 HTML 은 서버에서 이스케이프되고 링크 스킴도 검사를 거친다
+            (apps/api/src/lib/markdown.ts 참고).
+          */}
+          <div class="prose prose-lg max-w-none" set:html={html} />
+        </Fragment>
+      )}
 
-      <footer class="mt-10 space-y-6">
-        {post.tags.length > 0 && (
-          <div class="flex flex-wrap gap-2">
-            {post.tags.map((tag) => (
-              <a href={tagUrl(tag.slug)} class="badge badge-outline hover:badge-primary">
-                #{tag.name}
-              </a>
-            ))}
+      {!post.isProtected && (
+        <footer class="mt-10 space-y-6">
+          {post.tags.length > 0 && (
+            <div class="flex flex-wrap gap-2">
+              {post.tags.map((tag) => (
+                <a href={tagUrl(tag.slug)} class="badge badge-outline hover:badge-primary">
+                  #{tag.name}
+                </a>
+              ))}
+            </div>
+          )}
+
+          <div class="flex justify-center py-4">
+            <LikeButton slug={post.slug} initialCount={post.likeCount} />
           </div>
-        )}
 
-        <div class="flex justify-center py-4">
-          <LikeButton slug={post.slug} initialCount={post.likeCount} />
-        </div>
-
-        <nav class="grid gap-3 sm:grid-cols-2" aria-label="이전 다음 글">
-          {post.previous ? (
-            <a href={postUrl(post.previous.slug)} class="frost-card p-4">
-              <span class="text-base-content/50 text-xs">이전 글</span>
-              <p class="mt-1 line-clamp-2 text-sm font-medium">{post.previous.title}</p>
-            </a>
-          ) : (
-            <div></div>
-          )}
-          {post.next && (
-            <a href={postUrl(post.next.slug)} class="frost-card p-4 sm:text-right">
-              <span class="text-base-content/50 text-xs">다음 글</span>
-              <p class="mt-1 line-clamp-2 text-sm font-medium">{post.next.title}</p>
-            </a>
-          )}
-        </nav>
-      </footer>
+          <nav class="grid gap-3 sm:grid-cols-2" aria-label="이전 다음 글">
+            {post.previous ? (
+              <a href={postUrl(post.previous.slug)} class="frost-card p-4">
+                <span class="text-base-content/50 text-xs">이전 글</span>
+                <p class="mt-1 line-clamp-2 text-sm font-medium">{post.previous.title}</p>
+              </a>
+            ) : (
+              <div></div>
+            )}
+            {post.next && (
+              <a href={postUrl(post.next.slug)} class="frost-card p-4 sm:text-right">
+                <span class="text-base-content/50 text-xs">다음 글</span>
+                <p class="mt-1 line-clamp-2 text-sm font-medium">{post.next.title}</p>
+              </a>
+            )}
+          </nav>
+        </footer>
+      )}
 
       {post.related.length > 0 && (
         <section class="mt-12" aria-labelledby="related-heading">
@@ -129,12 +165,16 @@ const { html, toc } = extractToc(post.contentHtml ?? '');
         </section>
       )}
 
-      <Comments
-        slug={post.slug}
-        allowComments={allowComments}
-        comments={comments}
-        commentCount={post.commentCount}
-      />
+      {/* 비밀글은 댓글을 받지 않는다. 본문을 잠가 놓고 그 아래 토론이 공개로
+          쌓이면 내용이 그대로 짐작된다. */}
+      {!post.isProtected && (
+        <Comments
+          slug={post.slug}
+          allowComments={allowComments}
+          comments={comments}
+          commentCount={post.commentCount}
+        />
+      )}
     </article>
 
     <aside class="order-first lg:order-last">

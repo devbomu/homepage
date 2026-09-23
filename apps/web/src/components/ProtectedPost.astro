@@ -1,0 +1,145 @@
+---
+/**
+ * 비밀글의 잠금 화면.
+ *
+ * 본문은 서버가 아예 내려주지 않는다 — 글 페이지는 엣지에 캐시되므로
+ * "맞힌 사람에게만 다르게 그려주기" 가 성립하지 않는다.
+ * 비밀번호를 맞히면 /v1/posts/:slug/unlock 이 no-store 로 본문을 주고,
+ * 그때 스크립트가 화면에 꽂는다.
+ */
+interface Props {
+  slug: string;
+}
+
+const { slug } = Astro.props;
+const apiUrl = import.meta.env.PUBLIC_API_URL;
+---
+
+<div data-protected data-slug={slug} data-api={apiUrl}>
+  <form data-unlock-form class="frost-card mx-auto max-w-md space-y-4 p-6 text-center">
+    <p class="text-4xl" aria-hidden="true">
+      🔒
+    </p>
+    <div>
+      <h2 class="text-lg font-bold">비밀글입니다</h2>
+      <p class="text-base-content/60 mt-1 text-sm">비밀번호를 입력하면 내용을 볼 수 있습니다.</p>
+    </div>
+
+    <div class="form-control">
+      <label for="post-password" class="sr-only">
+        비밀번호
+      </label>
+      <input
+        id="post-password"
+        name="password"
+        type="password"
+        required
+        maxlength="200"
+        autocomplete="current-password"
+        class="input input-bordered w-full text-center"
+        placeholder="비밀번호"
+      />
+    </div>
+
+    <p data-unlock-message role="status" class="hidden text-sm"></p>
+
+    <button type="submit" class="btn btn-primary w-full">
+      열기
+    </button>
+  </form>
+
+  <article data-unlock-content class="prose prose-lg hidden max-w-none"></article>
+</div>
+
+<script>
+  const root = document.querySelector<HTMLElement>('[data-protected]');
+
+  if (root) {
+    const api = root.dataset.api!;
+    const slug = encodeURIComponent(root.dataset.slug!);
+    const form = root.querySelector<HTMLFormElement>('[data-unlock-form]')!;
+    const target = root.querySelector<HTMLElement>('[data-unlock-content]')!;
+    const message = form.querySelector<HTMLElement>('[data-unlock-message]')!;
+    const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    const heading = document.querySelector<HTMLElement>('[data-post-title]');
+
+    // 한 번 푼 글은 하루 동안 다시 묻지 않는다.
+    // 비밀번호 자체가 아니라 이 글 하나에만 쓰이는 서명 토큰을 보관한다.
+    const storageKey = `post-unlock:${root.dataset.slug}`;
+
+    const readToken = (): string | null => {
+      try {
+        return localStorage.getItem(storageKey);
+      } catch {
+        return null;
+      }
+    };
+
+    const writeToken = (token: string) => {
+      try {
+        localStorage.setItem(storageKey, token);
+      } catch {
+        // 시크릿 모드 등에서 막히면 이번 방문만 열린 채로 둔다.
+      }
+    };
+
+    const clearToken = () => {
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {
+        /* 무시 */
+      }
+    };
+
+    const reveal = (data: { title: string; contentHtml: string }) => {
+      // 서버가 마크다운을 렌더하면서 원시 HTML 을 이스케이프하고 링크 스킴도 검사한다
+      // (apps/api/src/lib/markdown.ts). 글 본문과 같은 경로다.
+      target.innerHTML = data.contentHtml;
+      target.classList.remove('hidden');
+      form.classList.add('hidden');
+      if (heading && data.title) heading.textContent = data.title;
+      document.title = document.title.replace('비밀글', data.title);
+    };
+
+    const unlock = async (body: Record<string, string>): Promise<boolean> => {
+      const response = await fetch(`${api}/v1/posts/${slug}/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        if (body.token) clearToken();
+        else {
+          message.textContent = payload?.error?.message ?? '열지 못했습니다.';
+          message.className = 'text-error text-sm';
+        }
+        return false;
+      }
+
+      writeToken(payload.data.token);
+      reveal(payload.data);
+      return true;
+    };
+
+    const saved = readToken();
+    if (saved) void unlock({ token: saved });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      message.className = 'hidden text-sm';
+
+      const password = new FormData(form).get('password');
+      try {
+        await unlock({ password: String(password ?? '') });
+      } catch {
+        message.textContent = '네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+        message.className = 'text-error text-sm';
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  }
+</script>

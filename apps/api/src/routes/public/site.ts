@@ -6,7 +6,7 @@ import type { AppEnv } from '../../env';
 import { ApiError } from '../../lib/errors';
 import { renderMarkdown } from '../../lib/markdown';
 import { ok } from '../../lib/response';
-import { visiblePage, visiblePost } from '../../queries/visibility';
+import { indexablePost, visiblePage } from '../../queries/visibility';
 
 export const publicSite = new Hono<AppEnv>();
 
@@ -137,7 +137,8 @@ publicSite.get('/feed/posts', async (c) => {
       updatedAt: posts.updatedAt,
     })
     .from(posts)
-    .where(visiblePost)
+    // 비밀글은 사이트맵과 RSS 에서 뺀다. 본문을 잠가 놓고 피드로 흘리면 의미가 없다.
+    .where(indexablePost)
     .orderBy(desc(posts.publishedAt))
     .limit(500);
 

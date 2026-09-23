@@ -32,8 +32,19 @@ const timestamps = {
 export const POST_STATUSES = ['draft', 'scheduled', 'published', 'archived'] as const;
 export const COMMENT_STATUSES = ['pending', 'approved', 'spam', 'deleted'] as const;
 
+/**
+ * 비밀글이 목록·검색 결과에 어떻게 보이는지.
+ * 본문은 어느 쪽이든 비밀번호를 넣어야 열린다.
+ *
+ *  title  — 제목과 자물쇠만. 요약·표지·태그는 가린다 (기본)
+ *  masked — 제목까지 가리고 "비밀글" 이라고만 표시한다
+ *  hidden — 목록에서 아예 뺀다. 직접 링크를 아는 사람만 들어온다
+ */
+export const PROTECTED_LISTINGS = ['title', 'masked', 'hidden'] as const;
+
 export type PostStatus = (typeof POST_STATUSES)[number];
 export type CommentStatus = (typeof COMMENT_STATUSES)[number];
+export type ProtectedListing = (typeof PROTECTED_LISTINGS)[number];
 
 /**
  * slug 규칙: 소문자 / 공백 없음 / URL 예약문자 없음. 한글 slug 도 허용한다.
@@ -158,6 +169,16 @@ export const posts = sqliteTable(
     metaDescription: text('meta_description'),
     ogImageUrl: text('og_image_url'),
 
+    /**
+     * 비밀글. 값이 있으면 비밀번호를 넣어야 본문이 열린다.
+     * 평문은 어디에도 저장하지 않는다 — PBKDF2 해시만 들어간다.
+     */
+    passwordHash: text('password_hash'),
+    /** 비밀글이 목록에 어떻게 보이는지. 비밀글이 아닐 때는 의미가 없다. */
+    protectedListing: text('protected_listing', { enum: PROTECTED_LISTINGS })
+      .notNull()
+      .default('title'),
+
     ...timestamps,
     deletedAt: integer('deleted_at'),
   },
@@ -177,6 +198,10 @@ export const posts = sqliteTable(
     uniqueIndex('posts_series_order_uq')
       .on(t.seriesId, t.seriesOrder)
       .where(sql`series_id is not null and series_order is not null and deleted_at is null`),
+    // 목록 쿼리가 "비밀글인가" 를 매번 확인한다.
+    index('posts_protected_idx')
+      .on(t.protectedListing)
+      .where(sql`password_hash is not null and deleted_at is null`),
 
     check('posts_slug_ck', slugCheck(t.slug)),
     check('posts_title_ck', sql`length(${t.title}) between 1 and 200`),

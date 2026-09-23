@@ -11,6 +11,21 @@ export const POST_STATUS_LABEL: Record<PostStatus, string> = {
   archived: '보관',
 };
 
+export const PROTECTED_LISTINGS = ['title', 'masked', 'hidden'] as const;
+export type ProtectedListing = (typeof PROTECTED_LISTINGS)[number];
+
+export const PROTECTED_LISTING_LABEL: Record<ProtectedListing, string> = {
+  title: '제목만 보이기',
+  masked: '제목도 가리기',
+  hidden: '목록에서 숨기기',
+};
+
+export const PROTECTED_LISTING_HINT: Record<ProtectedListing, string> = {
+  title: '목록에 제목과 자물쇠가 보이고 요약·표지·태그는 가립니다.',
+  masked: "목록에 '비밀글' 이라고만 나오고 제목·카테고리·태그를 가립니다.",
+  hidden: '목록·카테고리·태그 어디에도 안 나옵니다. 링크를 아는 사람만 들어옵니다.',
+};
+
 export const COMMENT_STATUS_LABEL: Record<CommentStatus, string> = {
   pending: '대기',
   approved: '승인',
@@ -57,6 +72,8 @@ export interface PostListItem {
   likeCount: number;
   viewCount: number;
   categoryName: string | null;
+  hasPassword: boolean;
+  protectedListing: ProtectedListing;
 }
 
 export interface PostDetail {
@@ -82,6 +99,9 @@ export interface PostDetail {
   metaTitle: string | null;
   metaDescription: string | null;
   ogImageUrl: string | null;
+  /** 비밀글인지. 해시 자체는 서버가 내려주지 않는다. */
+  hasPassword: boolean;
+  protectedListing: ProtectedListing;
   tags: Tag[];
 }
 
