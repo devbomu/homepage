@@ -13,6 +13,18 @@
     "directory": "./dist"
   },
 
+  // Astro 의 Cloudflare 어댑터는 세션 저장소로 KV 를 쓴다.
+  // 여기서 선언하지 않으면 배포 시 자동 프로비저닝으로 넘어가는데,
+  // 그 흐름은 대화형 확인을 물을 수 있어 CI 에서 멈출 수 있다.
+  // 아래 id 는 `wrangler kv namespace create SESSION` 출력값으로 교체한다.
+  // (이 사이트는 세션을 쓰지 않지만 어댑터가 바인딩을 요구한다.)
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "00000000000000000000000000000000"
+    }
+  ],
+
   "routes": [
     { "pattern": "www.namsu.kim", "custom_domain": true },
     { "pattern": "namsu.kim", "custom_domain": true }
