@@ -149,8 +149,15 @@ Cloudflare 대시보드의 Redirect Rules 로도 같은 일을 할 수 있고 �
 
 - **FTS5 trigram 은 2글자 이하 질의를 매칭하지 못한다.** 쿼리 계층에서 `LIKE` 스캔으로 폴백한다.
   글이 수천 개를 넘어가면 재검토가 필요하다.
-- **`schema.ts` 와 `0001_triggers_and_search.sql` 이 갈라질 수 있다.**
-  drizzle-kit 이 트리거·가상 테이블을 모르기 때문이다. 스키마를 고칠 때 이 파일도 같이 봐야 한다.
+- **`schema.ts` 와 손으로 쓴 마이그레이션이 갈라질 수 있다.**
+  drizzle-kit 이 트리거·가상 테이블·부분 인덱스를 모르기 때문이다.
+  스키마를 고칠 때 이 파일들도 같이 봐야 한다.
+- **마이그레이션은 drizzle-kit 과 손 편집을 섞어 쓴다.** 테이블·컬럼 변경은
+  `pnpm db:generate` 가 만들고, 트리거와 FTS5 는 손으로 쓴다.
+  `wrangler d1 migrations apply` 는 디렉터리의 `.sql` 을 이름 순으로 전부 실행하고,
+  drizzle-kit 은 `meta/_journal.json` 과 스냅샷만 본다. 두 쪽이 보는 것이 다르므로
+  **저널의 `idx` 와 파일 이름의 번호를 항상 맞춰 둔다.** 손으로 쓴 마이그레이션도
+  스냅샷 자리를 채워야 다음 `db:generate` 가 번호를 겹쳐 쓰지 않는다.
 - **D1 무료 플랜은 하루 500만 row read / 10만 row write** 한도가 있고 초과하면 쿼리가 실패한다.
   Workers Paid 로 올리면 사실상 해제된다.
 - **마이그레이션은 배포 워크플로가 실행하지 않는다.** 컬럼을 추가하는 변경은
