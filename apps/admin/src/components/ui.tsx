@@ -130,7 +130,12 @@ export function Field({
   // htmlFor 가 div 를 가리키는 것은 유효하지 않다.
   if (controlIndex === -1) {
     return (
-      <div className="form-control w-full" role="group" aria-label={label} aria-describedby={hintId}>
+      <div
+        className="form-control w-full"
+        role="group"
+        aria-label={label}
+        aria-describedby={hintId}
+      >
         <span className="label-text mb-1 block text-sm font-medium">{labelContent}</span>
         {items}
         {hintNode}
