@@ -19,7 +19,7 @@ if (!page) return Astro.rewrite('/404');
 const { html } = extractToc(page.contentHtml ?? '');
 ---
 
-<BaseLayout title={page.title} description={page.metaDescription ?? undefined} cacheSeconds={300}>
+<BaseLayout title={page.title} description={page.metaDescription ?? undefined}>
   <article class="mx-auto max-w-3xl">
     <header class="mb-8">
       <h1 class="text-3xl font-bold">{page.title}</h1>

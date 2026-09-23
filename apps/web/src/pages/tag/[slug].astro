@@ -24,7 +24,7 @@ try {
 const label = posts[0]?.tags.find((tag) => tag.slug === slug)?.name ?? slug;
 ---
 
-<BaseLayout title={`#${label}`} description={`${label} 태그가 붙은 글`} cacheSeconds={60}>
+<BaseLayout title={`#${label}`} description={`${label} 태그가 붙은 글`}>
   <h1 class="mb-6 text-2xl font-bold">#{label}</h1>
 
   {posts.length === 0 ? (

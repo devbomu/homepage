@@ -19,7 +19,7 @@ if (query) {
 ---
 
 <!-- 검색 결과는 질의마다 다르므로 엣지에 캐시하지 않는다. -->
-<BaseLayout title={query ? `"${query}" 검색` : '검색'} noindex cacheSeconds={0}>
+<BaseLayout title={query ? `"${query}" 검색` : '검색'} noindex>
   <h1 class="mb-6 text-2xl font-bold">검색</h1>
 
   <form method="get" action="/search" class="mb-8 flex gap-2" role="search">

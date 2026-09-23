@@ -36,7 +36,6 @@ const baseUrl = `/category/${path.split('/').map(encodeURIComponent).join('/')}`
 <BaseLayout
   title={category.name}
   description={category.description ?? `${category.name} 카테고리의 글`}
-  cacheSeconds={60}
 >
   <div class="grid gap-8 lg:grid-cols-[1fr_16rem]">
     <div>

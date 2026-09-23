@@ -34,7 +34,6 @@ const { html, toc } = extractToc(post.contentHtml ?? '');
   ogImage={post.ogImageUrl ?? post.coverImageUrl}
   ogType="article"
   publishedAt={post.publishedAt}
-  cacheSeconds={60}
 >
   <div class="grid gap-8 lg:grid-cols-[1fr_15rem]">
     <article class="min-w-0">

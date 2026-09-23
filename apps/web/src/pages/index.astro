@@ -25,7 +25,7 @@ const pinnedSlugs = new Set(pinned.map((post) => post.slug));
 const recentWithoutPinned = recent.filter((post) => !pinnedSlugs.has(post.slug));
 ---
 
-<BaseLayout cacheSeconds={60}>
+<BaseLayout>
   {pinned.length > 0 && (
     <section class="mb-10" aria-labelledby="pinned-heading">
       <h2 id="pinned-heading" class="mb-4 text-lg font-bold">
