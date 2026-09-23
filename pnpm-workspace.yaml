@@ -12,3 +12,11 @@ allowBuilds:
   '@parcel/watcher': true
   esbuild: true
   workerd: true
+
+# 전이 의존성 버전 고정.
+#
+# drizzle-kit 이 오래된 esbuild 를 끌고 온다 (GHSA-67mh-4wv8-2f99).
+# esbuild 개발 서버를 아무 웹사이트나 찌를 수 있는 문제인데, 우리는 그 서버를
+# 띄우지 않으므로 실제 노출은 없다. 그래도 경보를 방치할 이유가 없어 올려둔다.
+overrides:
+  esbuild: '>=0.25.0'
