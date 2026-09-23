@@ -6,6 +6,12 @@
   "compatibility_date": "2026-09-23",
   "observability": { "enabled": true },
 
+  // Access 는 호스트 이름 단위로 적용된다. 커스텀 도메인만 정책으로 감싸면
+  // *.workers.dev 주소가 인증 없이 열린 채로 남는다. 아예 만들지 않는다.
+  // preview_urls 도 같은 이유로 끈다 (버전마다 공개 URL 이 하나씩 생긴다).
+  "workers_dev": false,
+  "preview_urls": false,
+
   "routes": [{ "pattern": "api.namsu.kim", "custom_domain": true }],
 
   "d1_databases": [
@@ -14,7 +20,7 @@
       "database_name": "namsu-kim",
       // `wrangler d1 create namsu-kim` 출력값으로 교체한다.
       // D1 database id 는 비밀값이 아니다 (API 토큰 없이는 접근 불가).
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "3a8bfd8d-6140-495c-af72-7fe726266d7f",
       "migrations_dir": "../../packages/db/migrations"
     }
   ],

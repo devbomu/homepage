@@ -10,7 +10,7 @@
       "database_name": "namsu-kim",
       // 아래 ID 는 `wrangler d1 create namsu-kim` 실행 후 출력되는 값으로 교체한다.
       // 공개 저장소지만 D1 database id 는 비밀값이 아니다 (API 토큰 없이는 접근 불가).
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "3a8bfd8d-6140-495c-af72-7fe726266d7f",
       "migrations_dir": "migrations"
     }
   ]

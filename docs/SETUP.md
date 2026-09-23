@@ -78,20 +78,43 @@ pnpm --filter @namsu/web exec wrangler kv namespace create SESSION
 ## 4. Cloudflare Access (관리자 인증)
 
 Zero Trust 대시보드 → Access → Applications → **Self-hosted**.
-**하나의 앱에 도메인 두 개를 모두 넣는다.**
 
-| 도메인            | 경로        |
-| ----------------- | ----------- |
-| `admin.namsu.kim` | (전체)      |
-| `api.namsu.kim`   | `/v1/admin` |
+### 대상
+
+**공개 호스트 이름**으로 두 개를 추가한다. (기본으로 잡혀 있는 `Workers` 대상은 지운다 —
+`*.workers.dev` 는 아래 설명대로 아예 만들지 않는다.)
+
+| 하위 도메인 | 도메인      | 경로       |
+| ----------- | ----------- | ---------- |
+| `admin`     | `namsu.kim` | _(비움)_   |
+| `api`       | `namsu.kim` | `v1/admin` |
 
 두 번째가 빠지면 **관리자 API 가 인터넷에 열린 채로 남는다.**
-`api.namsu.kim` 전체에 걸면 공개 API 까지 막히니 경로를 반드시 지정할 것.
+반대로 `api.namsu.kim` 전체에 걸면 공개 사이트가 글을 읽지 못한다. 경로를 반드시 넣을 것.
 
-정책은 **Allow → Emails → 본인 이메일** 하나면 충분하다.
+> **`*.workers.dev` 를 끈 이유**
+> Access 는 호스트 이름 단위로 적용된다. 커스텀 도메인만 정책으로 감싸도
+> Worker 의 `*.workers.dev` 주소는 그대로 열려 있다.
+> 그래서 세 앱 모두 `wrangler.jsonc` 에 `workers_dev: false`, `preview_urls: false` 를 둔다.
 
-만든 뒤 앱 상세에서 두 값을 가져와 `apps/api/wrangler.jsonc` 의 `vars` 에 넣는다.
-둘 다 비밀이 아니다.
+### 정책
+
+**새 정책 만들기** → 작업 `Allow`, 규칙 포함 `이메일` → 본인 이메일.
+정책은 기본이 거부라 이 하나면 충분하다.
+
+### 인증
+
+- **사용 가능한 모든 ID 공급자 수락** 은 켠 채로 둔다.
+  IdP 를 따로 붙이지 않았으면 Cloudflare 기본 **One-time PIN**(이메일 코드)이 쓰인다.
+- **즉시 인증 적용** 을 켠다. 로그인 방법이 하나뿐일 때 공급자 선택 화면을 건너뛴다.
+
+### 세부 정보
+
+이름은 알아보기 쉬운 것으로, 세션 지속 시간은 기본값 `24 hours` 로 둔다.
+
+### 만든 뒤
+
+앱 상세에서 두 값을 가져와 `apps/api/wrangler.jsonc` 의 `vars` 에 넣는다. 둘 다 비밀이 아니다.
 
 ```jsonc
 "CF_ACCESS_TEAM_DOMAIN": "<팀이름>.cloudflareaccess.com",
