@@ -1,9 +1,10 @@
-import { COMMENT_STATUSES, comments, createDb } from '@namsu/db';
+import { COMMENT_STATUSES, comments, createDb, posts } from '@namsu/db';
 import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
 import type { AppEnv } from '../../env';
+import { replyMail, sendMail } from '../../lib/email';
 import { audit } from '../../lib/audit';
 import { decodeCursor, parseLimit } from '../../lib/pagination';
 import { ApiError } from '../../lib/errors';
@@ -86,8 +87,16 @@ adminComments.post(
     const { body } = c.req.valid('json');
 
     const [parent] = await db
-      .select({ postId: comments.postId })
+      .select({
+        postId: comments.postId,
+        postSlug: posts.slug,
+        postTitle: posts.title,
+        authorEmail: comments.authorEmail,
+        body: comments.body,
+        isSecret: comments.isSecret,
+      })
       .from(comments)
+      .innerJoin(posts, eq(posts.id, comments.postId))
       .where(and(eq(comments.id, parentId), isNull(comments.deletedAt)))
       .limit(1);
     if (!parent) throw ApiError.notFound('댓글을 찾을 수 없습니다.');
@@ -109,6 +118,30 @@ adminComments.post(
     });
 
     await audit(db, identity, 'comment.reply', 'comment', created.id, { parentId });
+
+    /*
+     * 답글 알림. 비밀 댓글이면 이 메일이 답을 읽는 유일한 통로다 —
+     * 로그인이 없어서 공개 화면에서는 본인 확인을 할 수 없고,
+     * 그쪽에는 잠금 표시만 나간다.
+     * 발송은 응답을 막지 않는다.
+     */
+    if (parent.authorEmail) {
+      c.executionCtx.waitUntil(
+        sendMail(
+          c.env,
+          replyMail({
+            to: parent.authorEmail,
+            postTitle: parent.postTitle,
+            postUrl: `${c.env.SITE_URL}/blog/${encodeURIComponent(parent.postSlug)}#comments`,
+            originalBody: parent.body,
+            replyAuthor: c.env.OWNER_DISPLAY_NAME || '작성자',
+            replyBody: body,
+            isSecret: created.isSecret,
+          }),
+        ),
+      );
+    }
+
     return c.json({ data: created }, 201);
   },
 );

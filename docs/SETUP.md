@@ -173,7 +173,8 @@ pnpm --filter @namsu/admin deploy
 ```
 
 각 `wrangler.jsonc` 의 `routes` 에 커스텀 도메인이 적혀 있어 DNS 레코드는 자동으로 생긴다.
-`namsu.kim` → `www.namsu.kim` 리다이렉트는 대시보드의 **Redirect Rules** 로 건다 (무료).
+`namsu.kim` → `www.namsu.kim` 리다이렉트는 공개 사이트 Worker 의 미들웨어가 처리한다.
+대시보드 설정은 필요 없다.
 
 이후로는 `main` 에 푸시하면 바뀐 앱만 자동 배포된다.
 
@@ -182,23 +183,58 @@ pnpm --filter @namsu/admin deploy
 관리자(`https://admin.namsu.kim`)에 들어가 **설정** 화면에서 사이트 제목·소개·소셜 링크를 채운다.
 그다음 **분류** 에서 카테고리를 만들고 글을 쓰면 된다.
 
+## 10. 알림 메일 (선택, 하지만 권장)
+
+댓글 알림과 답글 알림을 보내려면 발송 서비스가 필요하다.
+Cloudflare 의 Email Routing 은 **받기만** 하고, Email Workers 의 `send_email` 바인딩은
+계정에 등록·검증한 주소로만 보낼 수 있다. 댓글 작성자는 임의의 주소이므로 여기서는 쓸 수 없다.
+
+[Resend](https://resend.com) 를 쓴다. 무료 한도가 월 3,000통 / 일 100통이라
+개인 블로그에서는 넘길 일이 없다.
+
+1. Resend 가입 → **Domains** → `namsu.kim` 추가
+2. 화면에 나오는 DKIM·SPF 레코드를 Cloudflare DNS 에 그대로 넣는다.
+   **Proxy 는 반드시 꺼둔다 (DNS only).** 켜면 메일 인증이 통과하지 못한다.
+3. 상태가 `Verified` 로 바뀌면 **API Keys** 에서 키를 만든다 (권한은 `Sending access` 만).
+4. 키를 시크릿으로 넣는다:
+
+```bash
+cd apps/api && npx wrangler secret put RESEND_API_KEY
+```
+
+발신 주소는 비밀값이 아니라 `apps/api/wrangler.jsonc` 의 `MAIL_FROM` 에 있다.
+기본값은 `namsu.kim <no-reply@namsu.kim>` 이다.
+
+**설정하지 않아도 사이트는 정상 동작한다.** 키가 없으면 발송만 조용히 건너뛴다.
+받을 주소는 `ADMIN_EMAILS` 의 첫 번째를 쓴다 (6번에서 넣은 값).
+
+보내는 메일은 둘이다.
+
+| 언제                       | 받는 사람                           |
+| -------------------------- | ----------------------------------- |
+| 새 댓글·답글이 달렸을 때   | 주인                                |
+| 내 댓글에 답글이 달렸을 때 | 그 댓글 작성자 (이메일을 남긴 경우) |
+
+비밀 댓글의 답글은 공개 화면에 내용이 나가지 않으므로, 이 메일이 답을 읽는 유일한 통로다.
+
 ## 권장 설정 (선택)
 
-| 기능           | 왜                                                        |
-| -------------- | --------------------------------------------------------- |
-| Web Analytics  | 쿠키 없는 방문 통계. GA 와 달리 개인정보 고지 부담이 없다 |
-| Email Routing  | `hi@namsu.kim` → 개인 메일로 포워딩. 메일서버 불필요      |
-| Bot Fight Mode | Turnstile 앞단에서 한 번 더 거른다                        |
+| 기능           | 왜                                                             |
+| -------------- | -------------------------------------------------------------- |
+| Web Analytics  | 쿠키 없는 방문 통계. GA 와 달리 개인정보 고지 부담이 없다      |
+| Email Routing  | `hi@namsu.kim` → 개인 메일로 포워딩. 받는 용도 (보내기는 10번) |
+| Bot Fight Mode | Turnstile 앞단에서 한 번 더 거른다                             |
 
 ## 문제가 생기면
 
-| 증상                                            | 확인할 것                                                                              |
-| ----------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `command not found` / `ERR_PNPM_RECURSIVE_EXEC` | 저장소 루트가 아닌 곳에서 실행했다                                                     |
-| `You are not authenticated`                     | `wrangler login` 을 안 했다                                                            |
-| API 가 503                                      | 6번 시크릿 중 빠진 것이 있다. `wrangler tail` 로 `missing required configuration` 확인 |
-| 관리자에서 401/403                              | Access 앱에 `api.namsu.kim/v1/admin` 도메인이 빠졌거나 `CF_ACCESS_AUD` 가 다르다       |
-| 댓글이 항상 거부됨                              | `TURNSTILE_SECRET_KEY` 와 `PUBLIC_TURNSTILE_SITE_KEY` 가 같은 위젯의 쌍인지 확인       |
-| 글을 고쳐도 사이트가 그대로                     | 엣지 캐시다. 최대 60초. 급하면 대시보드에서 캐시 퍼지                                  |
-| 이미지가 깨짐                                   | R2 버킷의 커스텀 도메인과 `MEDIA_PUBLIC_BASE_URL` 이 다르다                            |
-| 배포가 KV 에서 멈춤                             | 3번 KV 네임스페이스 id 를 `apps/web/wrangler.jsonc` 에 안 넣었다                       |
+| 증상                                            | 확인할 것                                                                                                |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `command not found` / `ERR_PNPM_RECURSIVE_EXEC` | 저장소 루트가 아닌 곳에서 실행했다                                                                       |
+| `You are not authenticated`                     | `wrangler login` 을 안 했다                                                                              |
+| API 가 503                                      | 6번 시크릿 중 빠진 것이 있다. `wrangler tail` 로 `missing required configuration` 확인                   |
+| 관리자에서 401/403                              | Access 앱에 `api.namsu.kim/v1/admin` 도메인이 빠졌거나 `CF_ACCESS_AUD` 가 다르다                         |
+| 댓글이 항상 거부됨                              | `TURNSTILE_SECRET_KEY` 와 `PUBLIC_TURNSTILE_SITE_KEY` 가 같은 위젯의 쌍인지 확인                         |
+| 글을 고쳐도 사이트가 그대로                     | 엣지 캐시다. 최대 60초. 급하면 대시보드에서 캐시 퍼지                                                    |
+| 이미지가 깨짐                                   | R2 버킷의 커스텀 도메인과 `MEDIA_PUBLIC_BASE_URL` 이 다르다                                              |
+| 배포가 KV 에서 멈춤                             | 3번 KV 네임스페이스 id 를 `apps/web/wrangler.jsonc` 에 안 넣었다                                         |
+| 알림 메일이 안 옴                               | `RESEND_API_KEY` 가 없거나 도메인이 아직 `Verified` 가 아니다. `wrangler tail` 로 `mail: 발송 실패` 확인 |

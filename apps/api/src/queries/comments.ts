@@ -172,6 +172,25 @@ async function replyDepth(db: Db, commentId: number): Promise<number> {
 }
 
 /**
+ * 알림 메일을 만들 때 필요한 원댓글 정보.
+ * author_email 은 공개 응답에 절대 싣지 않지만, 답글 알림에는 필요하다.
+ */
+export async function getCommentForNotify(db: Db, id: number) {
+  const [row] = await db
+    .select({
+      id: comments.id,
+      authorName: comments.authorName,
+      authorEmail: comments.authorEmail,
+      body: comments.body,
+      isSecret: comments.isSecret,
+    })
+    .from(comments)
+    .where(and(eq(comments.id, id), isNull(comments.deletedAt)))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
  * 같은 방문자가 방금 똑같은 내용을 또 보냈는지 본다.
  * 더블클릭이나 재전송으로 같은 댓글이 두 번 달리는 것을 막는다.
  */

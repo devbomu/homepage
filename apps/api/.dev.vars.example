@@ -25,3 +25,8 @@ MEDIA_PUBLIC_BASE_URL="http://localhost:8787/media"
 # (운영에서는 index.ts 의 기동 점검이 빈 값을 막는다.)
 CF_ACCESS_TEAM_DOMAIN=""
 CF_ACCESS_AUD=""
+
+# 알림 메일 (선택). 비워 두면 발송을 건너뛴다.
+# 운영에서는 RESEND_API_KEY 를 `wrangler secret put` 으로 넣고,
+# MAIL_FROM 은 wrangler.jsonc 의 vars 에 둔다 (비밀값이 아니다).
+RESEND_API_KEY=

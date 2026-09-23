@@ -28,11 +28,15 @@ export interface Bindings {
   OWNER_DISPLAY_NAME?: string;
   /** 추가 허용 오리진 (쉼표 구분). 보통 비어 있다. */
   ALLOWED_ORIGINS?: string;
+  /** 알림 메일의 발신자. 예: "namsu.kim <no-reply@namsu.kim>". 비우면 메일을 보내지 않는다. */
+  MAIL_FROM?: string;
 
   // --- wrangler secret (비밀) ---
   VISITOR_HASH_SALT: string;
   TURNSTILE_SECRET_KEY: string;
   ADMIN_EMAILS: string;
+  /** Resend API 키. 없으면 메일 발송을 조용히 건너뛴다. */
+  RESEND_API_KEY?: string;
 }
 
 /** Cloudflare Access 가 검증한 관리자 신원. */
@@ -65,6 +69,14 @@ export function isDevelopment(env: Bindings): boolean {
 
 export function commentsRequireApproval(env: Bindings): boolean {
   return env.COMMENTS_REQUIRE_APPROVAL !== 'false';
+}
+
+/**
+ * 알림 메일을 받을 주인 주소.
+ * ADMIN_EMAILS 의 첫 번째를 쓴다 — 별도 var 를 두면 둘이 갈라진다.
+ */
+export function ownerEmail(env: Bindings): string | null {
+  return parseList(env.ADMIN_EMAILS)[0] ?? null;
 }
 
 /** 쉼표로 구분된 환경변수를 배열로. */
