@@ -54,3 +54,7 @@ Thumbs.db
 
 # wrangler 로컬 상태 (공유 D1)
 .wrangler-state/
+
+# Astro 가 만드는 타입 캐시와 dev 서버 PID 파일.
+# `astro sync` / `astro dev` 가 매번 다시 만들므로 저장소에 둘 이유가 없다.
+.astro/
