@@ -1,4 +1,4 @@
-import { createDb, POST_STATUSES, posts, tags, type Db } from '@namsu/db';
+import { createDb, POST_STATUSES, posts, PROTECTED_LISTINGS, tags, type Db } from '@namsu/db';
 import { zValidator } from '@hono/zod-validator';
 import { eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -8,6 +8,7 @@ import type { AppEnv } from '../../env';
 import { audit } from '../../lib/audit';
 import { ApiError } from '../../lib/errors';
 import { analyzeContent, autoSummary, renderMarkdown } from '../../lib/markdown';
+import { hashPassword } from '../../lib/password';
 import { decodeCursor, parseLimit } from '../../lib/pagination';
 import { created, noContent, ok, paged } from '../../lib/response';
 import { slugify, uniqueSlug } from '../../lib/slug';
@@ -19,7 +20,11 @@ const postInput = z.object({
   title: z.string().trim().min(1, '제목을 입력해 주세요.').max(200),
   slug: z.string().trim().max(200).optional(),
   summary: z.string().trim().max(500).nullish(),
-  content: z.string().max(200_000).default(''),
+  /*
+   * default('') 를 쓰면 안 된다. PATCH 로 제목만 고쳐 보내도 zod 가 빈 문자열을
+   * 채워 넣어 본문이 통째로 지워진다. 기본값은 생성 시점에만 적용한다.
+   */
+  content: z.string().max(200_000).optional(),
   categoryId: z.number().int().positive().nullish(),
   seriesId: z.number().int().positive().nullish(),
   seriesOrder: z.number().int().min(0).nullish(),
@@ -33,6 +38,14 @@ const postInput = z.object({
   metaTitle: z.string().trim().max(200).nullish(),
   metaDescription: z.string().trim().max(500).nullish(),
   ogImageUrl: z.string().trim().max(2000).nullish(),
+
+  /**
+   * 비밀글 비밀번호. 평문으로 받아 해시만 저장한다.
+   *  - 생략하면 지금 설정을 그대로 둔다
+   *  - null 이나 빈 문자열이면 잠금을 푼다
+   */
+  password: z.string().max(200).nullish(),
+  protectedListing: z.enum(PROTECTED_LISTINGS).optional(),
 });
 
 const validate = zValidator('json', postInput.partial({ title: true }), (result) => {
@@ -45,6 +58,21 @@ const validate = zValidator('json', postInput.partial({ title: true }), (result)
     throw ApiError.badRequest('입력값을 확인해 주세요.', fields);
   }
 });
+
+/**
+ * 비밀번호 입력을 저장할 해시로 바꾼다.
+ *
+ * 생략(undefined)과 해제(null / 빈 문자열)를 구분해야 한다. 둘을 같게 다루면
+ * 제목만 고치려고 PATCH 를 보낼 때마다 비밀글이 풀린다.
+ */
+async function resolvePasswordHash(
+  input: string | null | undefined,
+  current: string | null,
+): Promise<string | null> {
+  if (input === undefined) return current;
+  if (!input) return null;
+  return hashPassword(input);
+}
 
 async function slugTaken(db: Db, slug: string, excludeId?: number): Promise<boolean> {
   const [row] = await db.select({ id: posts.id }).from(posts).where(eq(posts.slug, slug)).limit(1);
@@ -141,6 +169,8 @@ adminPosts.post('/', validate, async (c) => {
       metaTitle: input.metaTitle ?? null,
       metaDescription: input.metaDescription ?? null,
       ogImageUrl: input.ogImageUrl ?? null,
+      passwordHash: input.password ? await hashPassword(input.password) : null,
+      protectedListing: input.protectedListing ?? 'title',
     })
     .returning({ id: posts.id, slug: posts.slug, status: posts.status });
 
@@ -193,6 +223,8 @@ adminPosts.patch('/:id{[0-9]+}', validate, async (c) => {
       metaDescription:
         input.metaDescription === undefined ? current.metaDescription : input.metaDescription,
       ogImageUrl: input.ogImageUrl === undefined ? current.ogImageUrl : input.ogImageUrl,
+      passwordHash: await resolvePasswordHash(input.password, current.passwordHash),
+      protectedListing: input.protectedListing ?? current.protectedListing,
     })
     .where(eq(posts.id, id));
 

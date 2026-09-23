@@ -76,6 +76,17 @@ check("공개 API 에서 바로 조회됨", s == 200, str(s))
 s, b = call("GET", "/v1/posts/search?q=블로그")
 check("FTS 색인이 트리거로 갱신됨", s == 200 and any(p["slug"] == slug for p in b["data"]), str(s))
 
+print("\n=== 부분 수정이 다른 필드를 지우지 않는지 ===")
+# content 스키마에 default('') 가 있어서, 제목만 담아 PATCH 하면 zod 가 빈 문자열을
+# 채워 넣고 본문이 통째로 지워졌다. 관리자 화면은 늘 전체를 보내서 드러나지 않았다.
+s, b = call("PATCH", f"/v1/admin/posts/{post_id}", {"title": "제목만 바꿔 본다"})
+check("제목만 PATCH 성공", s == 200, f"{s} {b}")
+s, b = call("GET", f"/v1/admin/posts/{post_id}")
+d = b["data"] if s == 200 else {}
+check("본문이 그대로 남아 있다", "## 소개" in (d.get("content") or ""), repr(d.get("content"))[:60])
+check("렌더된 HTML 도 그대로", "<h2>소개</h2>" in (d.get("contentHtml") or ""))
+check("제목은 바뀌었다", d.get("title") == "제목만 바꿔 본다", repr(d.get("title")))
+
 print("\n=== 다중 뎁스 카테고리 이동 (자손 path 연쇄 갱신) ===")
 before = paths()
 check("이동 전 구조", before.get("infra") == ("dev/backend/infra", 2), str(before.get("infra")))

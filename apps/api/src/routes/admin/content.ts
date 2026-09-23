@@ -20,7 +20,9 @@ export const adminContent = new Hono<AppEnv>();
 const pageInput = z.object({
   slug: z.string().trim().max(200).optional(),
   title: z.string().trim().min(1, '제목을 입력해 주세요.').max(200),
-  content: z.string().max(200_000).default(''),
+  // default('') 를 쓰면 PATCH 로 제목만 고쳐도 본문이 빈 문자열로 덮인다.
+  // 기본값은 생성 시점에만 적용한다 (posts.ts 에 같은 주석).
+  content: z.string().max(200_000).optional(),
   status: z.enum(POST_STATUSES).optional(),
   showInNav: z.boolean().optional(),
   navLabel: z.string().trim().max(50).nullish(),
@@ -54,8 +56,8 @@ adminContent.post('/pages', zValidator('json', pageInput), async (c) => {
     .values({
       slug: slugify(input.slug || input.title),
       title: input.title,
-      content: input.content,
-      contentHtml: renderMarkdown(input.content),
+      content: input.content ?? '',
+      contentHtml: renderMarkdown(input.content ?? ''),
       status,
       // 스키마 CHECK 가 발행/예약 상태에 시각을 요구한다.
       publishedAt:
@@ -126,7 +128,8 @@ const projectInput = z.object({
   slug: z.string().trim().max(200).optional(),
   title: z.string().trim().min(1, '제목을 입력해 주세요.').max(200),
   summary: z.string().trim().max(500).nullish(),
-  description: z.string().max(100_000).default(''),
+  // 위와 같은 이유로 default 를 두지 않는다.
+  description: z.string().max(100_000).optional(),
   thumbnailUrl: z.string().trim().max(2000).nullish(),
   repoUrl: z.string().trim().max(2000).nullish(),
   demoUrl: z.string().trim().max(2000).nullish(),
@@ -160,8 +163,8 @@ adminContent.post('/projects', zValidator('json', projectInput), async (c) => {
       slug: slugify(input.slug || input.title),
       title: input.title,
       summary: input.summary ?? null,
-      description: input.description,
-      descriptionHtml: renderMarkdown(input.description),
+      description: input.description ?? '',
+      descriptionHtml: renderMarkdown(input.description ?? ''),
       thumbnailUrl: input.thumbnailUrl ?? null,
       repoUrl: input.repoUrl ?? null,
       demoUrl: input.demoUrl ?? null,
