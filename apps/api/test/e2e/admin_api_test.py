@@ -150,6 +150,31 @@ check("스팸 처리하면 카운트 원복", s == 200 and b["data"]["commentCou
 s, b = call("GET", "/v1/posts/hello-world/comments")
 check("스팸은 공개 목록에서 사라짐", s == 200 and len(b["data"]["comments"]) == 0, str(s))
 
+print("\n=== 댓글 삭제와 되살리기 ===")
+# 소프트 삭제라 deleted_at 이 찍힌다. 예전에는 모더레이션 쿼리가 그걸 무조건
+# 걸러내서 '삭제' 탭이 늘 비어 있었다.
+s, b = call("DELETE", f"/v1/admin/comments/{cid}")
+check("삭제 요청", s == 204, f"{s} {b}")
+s, b = call("GET", "/v1/admin/comments?status=deleted")
+deleted = [c["id"] for c in (b["data"] if s == 200 else [])]
+check("삭제 탭에 나타난다", cid in deleted, f"{s} {deleted}")
+s, b = call("GET", "/v1/admin/comments?status=spam")
+check("다른 탭에는 안 보인다", cid not in [c["id"] for c in (b["data"] if s == 200 else [])])
+s, b = call("GET", "/v1/posts/hello-world/comments")
+check("공개 목록에도 없다", s == 200 and len(b["data"]["comments"]) == 0)
+
+s, b = call("POST", f"/v1/admin/comments/{cid}/restore")
+check("되살리기", s == 200 and b["data"]["status"] == "approved", f"{s} {b}")
+s, b = call("GET", "/v1/admin/comments?status=deleted")
+check("삭제 탭에서 빠진다", cid not in [c["id"] for c in (b["data"] if s == 200 else [])])
+s, b = call("GET", "/v1/posts/hello-world/comments")
+check("공개 목록으로 돌아온다", s == 200 and len(b["data"]["comments"]) == 1, str(s))
+s, b = call("GET", "/v1/posts/hello-world")
+check("되살리면 댓글 수도 돌아온다", s == 200 and b["data"]["commentCount"] == 1,
+      str(b["data"].get("commentCount") if s == 200 else s))
+s, b = call("POST", f"/v1/admin/comments/{cid}/restore")
+check("이미 살아 있는 댓글은 404", s == 404, f"{s} {b}")
+
 print("\n=== 통계 / 감사 로그 ===")
 s, b = call("GET", "/v1/admin/stats")
 check("대시보드 통계", s == 200 and b["data"]["posts"]["published"] >= 1, f"{s} {b.get('data',{}).get('posts')}")

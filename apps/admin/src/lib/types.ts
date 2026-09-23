@@ -27,19 +27,18 @@ export const PROTECTED_LISTING_HINT: Record<ProtectedListing, string> = {
 };
 
 /*
- * 댓글은 승인 없이 바로 공개된다. 그래서 pending 은 더 이상 "승인 대기" 가 아니라
- * 관리자가 내려둔 상태다 — 라벨을 동작에 맞춘다.
- * deleted 는 소프트 삭제라 모더레이션 목록 쿼리에서 아예 빠진다 (탭을 만들지 않는다).
+ * pending 은 승인제 시절의 상태다. 댓글이 바로 공개되도록 바뀐 뒤로는
+ * 어떤 화면도 이 상태를 만들지 않는다. DB 에서 지우지는 않고 화면에서만 뺀다.
  */
 export const COMMENT_STATUS_LABEL: Record<CommentStatus, string> = {
-  pending: '숨김',
+  pending: '대기',
   approved: '공개',
   spam: '스팸',
-  deleted: '삭제됨',
+  deleted: '삭제',
 };
 
-/** 모더레이션 화면에 탭으로 낼 상태. deleted 는 목록에 절대 안 나오므로 뺀다. */
-export const MODERATION_STATUSES = ['approved', 'pending', 'spam'] as const;
+/** 모더레이션 화면의 탭. */
+export const MODERATION_STATUSES = ['approved', 'spam', 'deleted'] as const;
 
 export interface CategoryNode {
   id: number;

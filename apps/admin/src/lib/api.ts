@@ -117,6 +117,8 @@ export const adminApi = {
     setStatus: (id: number, status: string) =>
       request<unknown>(`/v1/admin/comments/${id}`, { method: 'PATCH', ...json({ status }) }),
     remove: (id: number) => request<void>(`/v1/admin/comments/${id}`, { method: 'DELETE' }),
+    restore: (id: number) =>
+      request<{ id: number }>(`/v1/admin/comments/${id}/restore`, { method: 'POST' }),
     reply: (id: number, body: string) =>
       request<{ id: number; isSecret: boolean }>(`/v1/admin/comments/${id}/reply`, {
         method: 'POST',

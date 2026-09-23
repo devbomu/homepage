@@ -10,6 +10,13 @@ import {
 } from '../lib/types';
 import { Card, EmptyState, ErrorNotice, formatDate, Loading, PageHeader } from '../components/ui';
 
+const EMPTY_MESSAGE: Record<CommentStatus, string> = {
+  approved: '아직 댓글이 없습니다.',
+  spam: '스팸으로 분류한 댓글이 없습니다.',
+  deleted: '삭제한 댓글이 없습니다.',
+  pending: '댓글이 없습니다.',
+};
+
 const BADGE: Record<CommentStatus, string> = {
   pending: 'badge-ghost',
   approved: 'badge-success',
@@ -18,9 +25,8 @@ const BADGE: Record<CommentStatus, string> = {
 };
 
 export default function Comments() {
-  // 댓글은 바로 공개되므로 따로 걸러낼 큐가 없다.
-  // 전체를 먼저 보여주고, 숨김·스팸 처리와 삭제를 여기서 한다.
-  const [status, setStatus] = useState<CommentStatus | ''>('');
+  // 댓글은 바로 공개되므로 따로 걸러낼 큐가 없다. 공개된 것부터 보여준다.
+  const [status, setStatus] = useState<CommentStatus>('approved');
   // 답글 입력창은 한 번에 하나만 연다. 값은 댓글 id 다.
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [replyBody, setReplyBody] = useState('');
@@ -28,7 +34,7 @@ export default function Comments() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['comments', status],
-    queryFn: () => adminApi.comments.list({ status: status || undefined }).then((r) => r.data),
+    queryFn: () => adminApi.comments.list({ status }).then((r) => r.data),
   });
 
   const invalidate = () => {
@@ -44,6 +50,11 @@ export default function Comments() {
 
   const remove = useMutation({
     mutationFn: (id: number) => adminApi.comments.remove(id),
+    onSuccess: invalidate,
+  });
+
+  const restore = useMutation({
+    mutationFn: (id: number) => adminApi.comments.restore(id),
     onSuccess: invalidate,
   });
 
@@ -64,12 +75,6 @@ export default function Comments() {
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
-        <button
-          className={`btn btn-sm ${status === '' ? 'btn-primary' : 'btn-ghost'}`}
-          onClick={() => setStatus('')}
-        >
-          전체
-        </button>
         {MODERATION_STATUSES.map((s) => (
           <button
             key={s}
@@ -81,14 +86,14 @@ export default function Comments() {
         ))}
       </div>
 
-      <ErrorNotice error={error ?? setStatusMutation.error ?? remove.error ?? reply.error} />
+      <ErrorNotice
+        error={error ?? setStatusMutation.error ?? remove.error ?? restore.error ?? reply.error}
+      />
 
       {isLoading ? (
         <Loading />
       ) : !data || data.length === 0 ? (
-        <EmptyState
-          message={status === 'pending' ? '숨겨둔 댓글이 없습니다.' : '댓글이 없습니다.'}
-        />
+        <EmptyState message={EMPTY_MESSAGE[status]} />
       ) : (
         <ul className="space-y-3">
           {data.map((comment) => (
@@ -134,57 +139,66 @@ export default function Comments() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  {comment.status !== 'approved' && (
+                  {/*
+                    삭제는 소프트 삭제라 내용이 남아 있다. 삭제 탭에서는 되살리기만 준다 —
+                    이미 지운 댓글에 스팸 처리나 답글을 붙일 이유가 없다.
+                  */}
+                  {comment.status === 'deleted' ? (
                     <button
                       className="btn btn-success btn-xs"
-                      disabled={setStatusMutation.isPending}
-                      onClick={() => setStatusMutation.mutate({ id: comment.id, next: 'approved' })}
+                      disabled={restore.isPending}
+                      onClick={() => restore.mutate(comment.id)}
                     >
-                      다시 공개
+                      되살리기
                     </button>
+                  ) : (
+                    <>
+                      {comment.status !== 'approved' && (
+                        <button
+                          className="btn btn-success btn-xs"
+                          disabled={setStatusMutation.isPending}
+                          onClick={() =>
+                            setStatusMutation.mutate({ id: comment.id, next: 'approved' })
+                          }
+                        >
+                          다시 공개
+                        </button>
+                      )}
+                      {comment.status !== 'spam' && (
+                        <button
+                          className="btn btn-warning btn-xs"
+                          disabled={setStatusMutation.isPending}
+                          onClick={() => setStatusMutation.mutate({ id: comment.id, next: 'spam' })}
+                        >
+                          스팸
+                        </button>
+                      )}
+                      {/*
+                        답글은 공개된 댓글에만 단다. 스팸으로 내린 댓글에 답글을 달면
+                        부모가 공개 목록에 없어서 답글만 최상위로 떠오른다.
+                      */}
+                      {comment.status === 'approved' && (
+                        <button
+                          className="btn btn-ghost btn-xs"
+                          onClick={() => {
+                            setReplyTo(replyTo === comment.id ? null : comment.id);
+                            setReplyBody('');
+                          }}
+                        >
+                          답글
+                        </button>
+                      )}
+                      <button
+                        className="btn btn-ghost btn-xs text-error ml-auto"
+                        onClick={() => {
+                          if (confirm('이 댓글을 삭제할까요?\n답글은 함께 사라지지 않습니다.'))
+                            remove.mutate(comment.id);
+                        }}
+                      >
+                        삭제
+                      </button>
+                    </>
                   )}
-                  {comment.status !== 'spam' && (
-                    <button
-                      className="btn btn-warning btn-xs"
-                      disabled={setStatusMutation.isPending}
-                      onClick={() => setStatusMutation.mutate({ id: comment.id, next: 'spam' })}
-                    >
-                      스팸
-                    </button>
-                  )}
-                  {comment.status === 'approved' && (
-                    <button
-                      className="btn btn-ghost btn-xs"
-                      disabled={setStatusMutation.isPending}
-                      onClick={() => setStatusMutation.mutate({ id: comment.id, next: 'pending' })}
-                    >
-                      숨기기
-                    </button>
-                  )}
-                  {/*
-                    답글은 공개 상태인 댓글에만 달 수 있다. 숨겨둔 댓글에 답글을 달면
-                    부모가 공개 목록에 없어서 답글만 최상위로 떠오른다.
-                  */}
-                  {comment.status === 'approved' && (
-                    <button
-                      className="btn btn-ghost btn-xs"
-                      onClick={() => {
-                        setReplyTo(replyTo === comment.id ? null : comment.id);
-                        setReplyBody('');
-                      }}
-                    >
-                      답글
-                    </button>
-                  )}
-                  <button
-                    className="btn btn-ghost btn-xs text-error ml-auto"
-                    onClick={() => {
-                      if (confirm('이 댓글을 삭제할까요?\n답글은 함께 사라지지 않습니다.'))
-                        remove.mutate(comment.id);
-                    }}
-                  >
-                    삭제
-                  </button>
                 </div>
 
                 {replyTo === comment.id && (

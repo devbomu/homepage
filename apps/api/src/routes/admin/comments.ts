@@ -14,6 +14,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import {
   createComment,
   listCommentsForModeration,
+  restoreComment,
   setCommentStatus,
   softDeleteComment,
 } from '../../queries/comments';
@@ -62,6 +63,16 @@ adminComments.delete('/:id{[0-9]+}', async (c) => {
   await softDeleteComment(db, id);
   await audit(db, c.get('identity'), 'comment.delete', 'comment', id);
   return noContent(c);
+});
+
+/** POST /v1/admin/comments/:id/restore — 삭제한 댓글 되살리기. */
+adminComments.post('/:id{[0-9]+}/restore', async (c) => {
+  const db = createDb(c.env.DB);
+  const id = Number(c.req.param('id'));
+
+  const restored = await restoreComment(db, id);
+  await audit(db, c.get('identity'), 'comment.restore', 'comment', id);
+  return ok(c, restored);
 });
 
 /**

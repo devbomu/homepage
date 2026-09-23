@@ -224,8 +224,17 @@ export async function listCommentsForModeration(
   db: Db,
   opts: { limit: number; cursor: Cursor | null; status?: CommentStatus },
 ) {
-  const filters = [isNull(comments.deletedAt)];
-  if (opts.status) filters.push(eq(comments.status, opts.status));
+  /*
+   * 삭제는 소프트 삭제다 (deleted_at 이 찍히고 status 가 'deleted' 가 된다).
+   * 다른 탭에서는 삭제된 것을 빼야 하지만, 삭제 탭에서는 그것만 보여야 한다.
+   * 예전에는 이 구분이 없어서 삭제 탭이 늘 비어 있었다.
+   */
+  const filters =
+    opts.status === 'deleted'
+      ? [sql`${comments.deletedAt} is not null`]
+      : [isNull(comments.deletedAt)];
+
+  if (opts.status && opts.status !== 'deleted') filters.push(eq(comments.status, opts.status));
 
   if (opts.cursor) {
     const { sortValue, id } = opts.cursor;
@@ -271,6 +280,21 @@ export async function setCommentStatus(db: Db, id: number, status: CommentStatus
     .returning({ id: comments.id, status: comments.status });
 
   if (result.length === 0) throw ApiError.notFound('댓글을 찾을 수 없습니다.');
+  return result[0]!;
+}
+
+/**
+ * 삭제한 댓글을 되살린다.
+ * 소프트 삭제라 내용이 남아 있으므로 deleted_at 만 지우면 된다.
+ */
+export async function restoreComment(db: Db, id: number) {
+  const result = await db
+    .update(comments)
+    .set({ deletedAt: null, status: 'approved' })
+    .where(and(eq(comments.id, id), sql`${comments.deletedAt} is not null`))
+    .returning({ id: comments.id, status: comments.status });
+
+  if (result.length === 0) throw ApiError.notFound('삭제된 댓글을 찾을 수 없습니다.');
   return result[0]!;
 }
 
