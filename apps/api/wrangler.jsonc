@@ -59,6 +59,10 @@
     "SITE_URL": "https://www.namsu.kim",
     // 관리자가 단 답글에 붙는 이름. 비밀값이 아니라 공개 사이트에 그대로 보인다.
     "OWNER_DISPLAY_NAME": "남수",
+    // 알림 메일의 발신자. 도메인은 Resend 에서 인증해 두어야 한다.
+    // 비밀값이 아니다 — 받는 사람의 메일 헤더에 그대로 찍힌다.
+    // RESEND_API_KEY 가 없으면 발송 자체를 건너뛰므로 이 값만으로는 아무 일도 없다.
+    "MAIL_FROM": "namsu.kim <no-reply@namsu.kim>",
     "ADMIN_URL": "https://admin.namsu.kim",
     "MEDIA_PUBLIC_BASE_URL": "https://media.namsu.kim",
     // Access 앱의 팀 도메인과 AUD 태그. 둘 다 비밀값이 아니다.
@@ -67,6 +71,6 @@
     // (서명은 Cloudflare 의 비공개 키로만 만들어진다).
     "CF_ACCESS_TEAM_DOMAIN": "kns-bomu.cloudflareaccess.com",
     "CF_ACCESS_AUD": "6ea8d410705e7f9fde1bc33bda4ce89efa09460756be5601e314d0df12dc470d",
-    "COMMENTS_REQUIRE_APPROVAL": "true"
+    "COMMENTS_REQUIRE_APPROVAL": "false"
   }
 }

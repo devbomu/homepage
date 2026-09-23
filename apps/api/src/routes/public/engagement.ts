@@ -1,17 +1,23 @@
-import { createDb, posts } from '@namsu/db';
+import { createDb, posts, type Db } from '@namsu/db';
 import { zValidator } from '@hono/zod-validator';
 import { and, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
-import { commentsRequireApproval, type AppEnv } from '../../env';
+import { commentsRequireApproval, ownerEmail, type AppEnv } from '../../env';
+import { newCommentMail, replyMail, sendMail } from '../../lib/email';
 import { ApiError } from '../../lib/errors';
 import { ok } from '../../lib/response';
 import { verifyTurnstile } from '../../lib/turnstile';
 import { clientIp } from '../../lib/visitor';
 import { rateLimit } from '../../middleware/ratelimit';
 import { withVisitor } from '../../middleware/visitor';
-import { createComment, isDuplicateComment, listApprovedComments } from '../../queries/comments';
+import {
+  createComment,
+  getCommentForNotify,
+  isDuplicateComment,
+  listApprovedComments,
+} from '../../queries/comments';
 import { visiblePost } from '../../queries/visibility';
 import { getLikeState, recordView, toggleLike } from '../../queries/engagement';
 
@@ -128,7 +134,7 @@ publicEngagement.post(
       throw ApiError.forbidden('봇 검증에 실패했습니다. 새로고침 후 다시 시도해 주세요.');
 
     const [post] = await db
-      .select({ id: posts.id })
+      .select({ id: posts.id, slug: posts.slug, title: posts.title })
       .from(posts)
       .where(and(eq(posts.slug, c.req.param('slug')), visiblePost))
       .limit(1);
@@ -151,18 +157,37 @@ publicEngagement.post(
       autoApprove: !commentsRequireApproval(c.env),
     });
 
+    const published = comment.status === 'approved';
+
+    // 알림은 응답을 막지 않는다. 메일 서버가 느리다고 댓글 등록이 늦어질 이유가 없다.
+    c.executionCtx.waitUntil(
+      notifyOnComment(c.env, db, {
+        postTitle: post.title,
+        postUrl: `${c.env.SITE_URL}/blog/${encodeURIComponent(post.slug)}#comments`,
+        parentId: input.parentId ?? null,
+        authorName: input.authorName,
+        authorEmail: input.authorEmail ?? null,
+        body: input.body,
+        isSecret: comment.isSecret,
+      }),
+    );
+
     return c.json(
       {
         data: {
           id: comment.id,
           status: comment.status,
-          // 승인 대기면 화면에 바로 안 보이므로 그 사실을 알려준다.
           isSecret: comment.isSecret,
+          parentId: input.parentId ?? null,
+          // 바로 공개되는 경우 화면이 새로고침 없이 그릴 수 있게 값을 돌려준다.
+          // 비밀 댓글은 목록 조회와 같은 규칙으로 여기서도 비운다.
+          authorName: comment.isSecret ? '' : input.authorName,
+          body: comment.isSecret ? '' : input.body,
+          isOwner: false,
+          createdAt: comment.createdAt,
           message: comment.isSecret
-            ? comment.status === 'approved'
-              ? '비밀 댓글이 등록되었습니다. 작성자만 볼 수 있습니다.'
-              : '비밀 댓글이 등록되었습니다. 작성자만 볼 수 있습니다.'
-            : comment.status === 'approved'
+            ? '비밀 댓글이 등록되었습니다. 블로그 주인만 볼 수 있습니다.'
+            : published
               ? '댓글이 등록되었습니다.'
               : '댓글이 등록되었습니다. 확인 후 공개됩니다.',
         },
@@ -171,3 +196,63 @@ publicEngagement.post(
     );
   },
 );
+
+interface CommentNotice {
+  postTitle: string;
+  postUrl: string;
+  parentId: number | null;
+  authorName: string;
+  authorEmail: string | null;
+  body: string;
+  isSecret: boolean;
+}
+
+/**
+ * 새 댓글 알림.
+ *
+ * 주인에게는 늘 보내고, 답글이면 원댓글 작성자에게도 보낸다.
+ * 같은 주소로 두 번 가지 않게 한 번 걸러낸다 — 주인이 자기 글에
+ * 자문자답하면 똑같은 메일이 두 통 온다.
+ */
+async function notifyOnComment(env: AppEnv['Bindings'], db: Db, notice: CommentNotice) {
+  const sent = new Set<string>();
+  const owner = ownerEmail(env);
+
+  if (owner) {
+    sent.add(owner);
+    await sendMail(
+      env,
+      newCommentMail({
+        to: owner,
+        postTitle: notice.postTitle,
+        postUrl: notice.postUrl,
+        adminUrl: `${env.ADMIN_URL}/comments`,
+        authorName: notice.authorName,
+        body: notice.body,
+        isSecret: notice.isSecret,
+        isReply: notice.parentId != null,
+      }),
+    );
+  }
+
+  if (notice.parentId == null) return;
+
+  const parent = await getCommentForNotify(db, notice.parentId);
+  if (!parent?.authorEmail) return;
+  // 자기 댓글에 자기가 단 답글로 자기에게 메일이 가지 않게 한다.
+  if (parent.authorEmail === notice.authorEmail) return;
+  if (sent.has(parent.authorEmail)) return;
+
+  await sendMail(
+    env,
+    replyMail({
+      to: parent.authorEmail,
+      postTitle: notice.postTitle,
+      postUrl: notice.postUrl,
+      originalBody: parent.body,
+      replyAuthor: notice.authorName,
+      replyBody: notice.body,
+      isSecret: notice.isSecret,
+    }),
+  );
+}

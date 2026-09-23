@@ -147,10 +147,14 @@ check("목록의 likeCount 가 트리거로 갱신됨", s == 200 and b["data"][0
 print("\n=== 댓글 ===")
 s, b = call("POST", "/v1/posts/hello-world/comments",
             {"authorName": "방문자", "body": "첫 댓글입니다"})
-check("댓글 등록", s == 201 and b["data"]["status"] == "pending", f"{s} {b}")
-check("승인 대기 안내 문구", s == 201 and "확인 후" in b["data"]["message"])
+check("댓글 등록", s == 201 and b["data"]["status"] == "approved", f"{s} {b}")
+check("승인 없이 바로 공개된다는 문구", s == 201 and "확인 후" not in b["data"]["message"],
+      str(b["data"].get("message")))
 s, b = call("GET", "/v1/posts/hello-world/comments")
-check("대기중 댓글은 공개 목록에 안 보임", s == 200 and len(b["data"]["comments"]) == 0, str(s))
+check("등록하자마자 공개 목록에 나타남", s == 200 and len(b["data"]["comments"]) == 1, str(s))
+check("본문이 그대로 보임",
+      s == 200 and b["data"]["comments"][0]["body"] == "첫 댓글입니다",
+      str(b["data"]["comments"][:1]))
 
 # 댓글 레이트리밋은 1분에 3회다. 아래 순서는 그 안에서 짜여 있다.
 s, b = call("POST", "/v1/posts/hello-world/comments", {"authorName": "방문자", "body": "첫 댓글입니다"})

@@ -120,22 +120,24 @@ s, b = call("PATCH", f"/v1/admin/categories/{ids['life']}", {"parentId": ids["li
 check("자기 자신을 상위로 지정 차단", s == 422, f"{s}")
 
 print("\n=== 댓글 모더레이션 ===")
-s, b = call("GET", "/v1/admin/comments?status=pending")
-pend = b["data"] if s == 200 else []
-check("대기 큐 조회", s == 200 and len(pend) >= 1, f"{s} {len(pend)}")
-check("관리자 화면에는 이메일이 보임", s == 200 and "authorEmail" in pend[0], str(list(pend[0].keys()))[:80] if pend else "")
-cid = pend[0]["id"] if pend else None
-s, b = call("PATCH", f"/v1/admin/comments/{cid}", {"status": "approved"})
-check("승인 처리", s == 200 and b["data"]["status"] == "approved", f"{s}")
+# 댓글은 승인 없이 바로 공개된다. 관리자가 할 일은 스팸 처리와 삭제다.
+s, b = call("GET", "/v1/admin/comments?status=approved")
+rows = b["data"] if s == 200 else []
+check("모더레이션 큐 조회", s == 200 and len(rows) >= 1, f"{s} {len(rows)}")
+check("관리자 화면에는 이메일이 보임", s == 200 and "authorEmail" in rows[0], str(list(rows[0].keys()))[:80] if rows else "")
+cid = rows[0]["id"] if rows else None
 s, b = call("GET", "/v1/posts/hello-world/comments")
-check("승인 후 공개 목록에 나타남", s == 200 and len(b["data"]["comments"]) == 1, str(s))
+check("등록하자마자 공개 목록에 있음", s == 200 and len(b["data"]["comments"]) == 1, str(s))
 check("공개 응답에 이메일 없음", s == 200 and "authorEmail" not in b["data"]["comments"][0],
       str(list(b["data"]["comments"][0].keys())) if s == 200 and b["data"]["comments"] else "")
 s, b = call("GET", "/v1/posts/hello-world")
 check("commentCount 트리거 갱신", s == 200 and b["data"]["commentCount"] == 1, str(b["data"].get("commentCount") if s==200 else s))
 s, b = call("PATCH", f"/v1/admin/comments/{cid}", {"status": "spam"})
+check("스팸 처리", s == 200 and b["data"]["status"] == "spam", f"{s}")
 s, b = call("GET", "/v1/posts/hello-world")
 check("스팸 처리하면 카운트 원복", s == 200 and b["data"]["commentCount"] == 0, str(b["data"].get("commentCount") if s==200 else s))
+s, b = call("GET", "/v1/posts/hello-world/comments")
+check("스팸은 공개 목록에서 사라짐", s == 200 and len(b["data"]["comments"]) == 0, str(s))
 
 print("\n=== 통계 / 감사 로그 ===")
 s, b = call("GET", "/v1/admin/stats")

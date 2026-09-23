@@ -29,7 +29,7 @@ python3 "$(dirname "${BASH_SOURCE[0]}")/public_api_test.py"
 echo
 echo "▶ 관리자 API"
 reseed
-# 모더레이션 테스트에 쓸 댓글을 하나 만들어 둔다.
+# 모더레이션 테스트에 쓸 댓글을 하나 만들어 둔다 (등록 즉시 공개된다).
 curl -s -X POST "$BASE/v1/posts/hello-world/comments" \
   -H 'Content-Type: application/json' \
   -H 'Origin: http://localhost:4321' \

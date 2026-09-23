@@ -18,8 +18,9 @@ const BADGE: Record<CommentStatus, string> = {
 };
 
 export default function Comments() {
-  // 기본은 대기 큐다. 관리자가 여기서 할 일이 그것이기 때문이다.
-  const [status, setStatus] = useState<CommentStatus | ''>('pending');
+  // 댓글은 승인 없이 바로 공개되므로 대기 큐는 보통 비어 있다.
+  // 전체를 먼저 보여주고, 스팸 처리와 삭제를 여기서 한다.
+  const [status, setStatus] = useState<CommentStatus | ''>('');
   // 답글 입력창은 한 번에 하나만 연다. 값은 댓글 id 다.
   const [replyTo, setReplyTo] = useState<number | null>(null);
   const [replyBody, setReplyBody] = useState('');
@@ -57,7 +58,10 @@ export default function Comments() {
 
   return (
     <>
-      <PageHeader title="댓글" description="승인해야 공개 사이트에 보입니다." />
+      <PageHeader
+        title="댓글"
+        description="댓글은 올라오는 즉시 공개됩니다. 문제가 되는 것만 스팸 처리하거나 삭제하세요."
+      />
 
       <div className="mb-4 flex flex-wrap gap-2">
         <button
