@@ -114,7 +114,6 @@ export const adminApi = {
       for (const [k, v] of Object.entries(params)) if (v) query.set(k, String(v));
       return request<import('./types').ModerationComment[]>(`/v1/admin/comments?${query}`);
     },
-    pendingCount: () => request<{ count: number }>('/v1/admin/comments/pending-count'),
     setStatus: (id: number, status: string) =>
       request<unknown>(`/v1/admin/comments/${id}`, { method: 'PATCH', ...json({ status }) }),
     remove: (id: number) => request<void>(`/v1/admin/comments/${id}`, { method: 'DELETE' }),

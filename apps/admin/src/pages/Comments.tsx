@@ -3,23 +3,23 @@ import { useState } from 'react';
 
 import { adminApi } from '../lib/api';
 import {
-  COMMENT_STATUSES,
   COMMENT_STATUS_LABEL,
+  MODERATION_STATUSES,
   type CommentStatus,
   type ModerationComment,
 } from '../lib/types';
 import { Card, EmptyState, ErrorNotice, formatDate, Loading, PageHeader } from '../components/ui';
 
 const BADGE: Record<CommentStatus, string> = {
-  pending: 'badge-warning',
+  pending: 'badge-ghost',
   approved: 'badge-success',
   spam: 'badge-error',
   deleted: 'badge-ghost',
 };
 
 export default function Comments() {
-  // 댓글은 승인 없이 바로 공개되므로 대기 큐는 보통 비어 있다.
-  // 전체를 먼저 보여주고, 스팸 처리와 삭제를 여기서 한다.
+  // 댓글은 바로 공개되므로 따로 걸러낼 큐가 없다.
+  // 전체를 먼저 보여주고, 숨김·스팸 처리와 삭제를 여기서 한다.
   const [status, setStatus] = useState<CommentStatus | ''>('');
   // 답글 입력창은 한 번에 하나만 연다. 값은 댓글 id 다.
   const [replyTo, setReplyTo] = useState<number | null>(null);
@@ -70,7 +70,7 @@ export default function Comments() {
         >
           전체
         </button>
-        {COMMENT_STATUSES.map((s) => (
+        {MODERATION_STATUSES.map((s) => (
           <button
             key={s}
             className={`btn btn-sm ${status === s ? 'btn-primary' : 'btn-ghost'}`}
@@ -87,7 +87,7 @@ export default function Comments() {
         <Loading />
       ) : !data || data.length === 0 ? (
         <EmptyState
-          message={status === 'pending' ? '승인 대기 중인 댓글이 없습니다.' : '댓글이 없습니다.'}
+          message={status === 'pending' ? '숨겨둔 댓글이 없습니다.' : '댓글이 없습니다.'}
         />
       ) : (
         <ul className="space-y-3">
@@ -140,7 +140,7 @@ export default function Comments() {
                       disabled={setStatusMutation.isPending}
                       onClick={() => setStatusMutation.mutate({ id: comment.id, next: 'approved' })}
                     >
-                      승인
+                      다시 공개
                     </button>
                   )}
                   {comment.status !== 'spam' && (
@@ -162,7 +162,7 @@ export default function Comments() {
                     </button>
                   )}
                   {/*
-                    답글은 승인된 댓글에만 달 수 있다. 대기 중인 댓글에 답글을 달면
+                    답글은 공개 상태인 댓글에만 달 수 있다. 숨겨둔 댓글에 답글을 달면
                     부모가 공개 목록에 없어서 답글만 최상위로 떠오른다.
                   */}
                   {comment.status === 'approved' && (
@@ -226,7 +226,7 @@ function ReplyBox({
   return (
     <div className="border-base-300 space-y-2 border-t pt-3">
       <label htmlFor={inputId} className="label-text text-sm">
-        답글 — 승인 없이 바로 공개됩니다.
+        답글 — 바로 공개됩니다.
       </label>
       {/*
         비밀 댓글의 답글은 서버가 강제로 비밀로 만든다. 선택지로 두지 않는 이유는

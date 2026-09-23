@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router';
 
 import { adminApi } from '../lib/api';
 import { POST_STATUS_LABEL, type PostStatus } from '../lib/types';
@@ -20,15 +19,6 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader title="대시보드" description="사이트 현황 요약" />
-
-      {data.pendingComments > 0 && (
-        <div role="alert" className="alert alert-warning mb-6">
-          <span className="text-sm">승인 대기 중인 댓글이 {data.pendingComments}개 있습니다.</span>
-          <Link to="/comments" className="btn btn-sm">
-            확인하기
-          </Link>
-        </div>
-      )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {(Object.keys(POST_STATUS_LABEL) as PostStatus[]).map((status) => (

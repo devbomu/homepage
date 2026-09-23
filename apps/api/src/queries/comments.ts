@@ -263,14 +263,6 @@ export async function listCommentsForModeration(
   return slicePage(rows, opts.limit, (row) => ({ sortValue: row.createdAt, id: row.id }));
 }
 
-export async function countPendingComments(db: Db): Promise<number> {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)` })
-    .from(comments)
-    .where(and(eq(comments.status, 'pending'), isNull(comments.deletedAt)));
-  return row?.n ?? 0;
-}
-
 export async function setCommentStatus(db: Db, id: number, status: CommentStatus) {
   const result = await db
     .update(comments)

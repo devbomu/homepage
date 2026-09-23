@@ -12,7 +12,6 @@ import { noContent, ok, paged } from '../../lib/response';
 import { and, eq, isNull } from 'drizzle-orm';
 
 import {
-  countPendingComments,
   createComment,
   listCommentsForModeration,
   setCommentStatus,
@@ -35,12 +34,6 @@ adminComments.get('/', async (c) => {
   });
 
   return paged(c, page.items, { limit, nextCursor: page.nextCursor, hasMore: page.hasMore });
-});
-
-/** GET /v1/admin/comments/pending-count — 관리자 화면 배지용. */
-adminComments.get('/pending-count', async (c) => {
-  const db = createDb(c.env.DB);
-  return ok(c, { count: await countPendingComments(db) });
 });
 
 /**

@@ -8,7 +8,7 @@ const NAV = [
   { to: '/', label: '대시보드', end: true },
   { to: '/posts', label: '글' },
   { to: '/taxonomy', label: '분류' },
-  { to: '/comments', label: '댓글', badge: 'pending' as const },
+  { to: '/comments', label: '댓글' },
   { to: '/media', label: '미디어' },
   { to: '/pages', label: '페이지' },
   { to: '/projects', label: '프로젝트' },
@@ -18,12 +18,6 @@ const NAV = [
 export default function Layout() {
   const location = useLocation();
   const me = useQuery({ queryKey: ['me'], queryFn: () => adminApi.me().then((r) => r.data) });
-
-  const pending = useQuery({
-    queryKey: ['comments', 'pending-count'],
-    queryFn: () => adminApi.comments.pendingCount().then((r) => r.data.count),
-    refetchInterval: 60_000,
-  });
 
   return (
     <div className="drawer lg:drawer-open">
@@ -67,9 +61,6 @@ export default function Layout() {
                   className={({ isActive }) => (isActive ? 'active' : '')}
                 >
                   <span className="flex-1">{item.label}</span>
-                  {item.badge === 'pending' && (pending.data ?? 0) > 0 && (
-                    <span className="badge badge-warning badge-sm">{pending.data}</span>
-                  )}
                 </NavLink>
               </li>
             ))}
