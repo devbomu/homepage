@@ -1,0 +1,46 @@
+# ---- secrets (공개 저장소: 절대 커밋 금지) ----
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+*.p12
+credentials.json
+deploy/.env
+deploy/backups/
+
+# ---- node ----
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+.vercel/
+.wrangler/
+.open-next/
+
+# ---- go ----
+server/bin/
+server/tmp/
+*.test
+*.out
+coverage.*
+
+# ---- 로그 / 임시 ----
+*.log
+npm-debug.log*
+pnpm-debug.log*
+tmp/
+.cache/
+
+# ---- OS / 에디터 ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.shared.json
