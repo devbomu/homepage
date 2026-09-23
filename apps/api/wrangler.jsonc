@@ -1,0 +1,55 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "namsu-api",
+  "main": "src/index.ts",
+  // 2026-08-04 이후 날짜라 Node.js 호환이 기본 활성화된다.
+  "compatibility_date": "2026-09-23",
+  "observability": { "enabled": true },
+
+  "routes": [{ "pattern": "api.namsu.kim", "custom_domain": true }],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "namsu-kim",
+      // `wrangler d1 create namsu-kim` 출력값으로 교체한다.
+      // D1 database id 는 비밀값이 아니다 (API 토큰 없이는 접근 불가).
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ],
+
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "namsu-media" }],
+
+  // 좋아요/댓글 남용 방어. D1 에 쓰지 않고 엣지에서 카운트하므로 비용이 들지 않는다.
+  // period 는 10 또는 60 만 허용된다.
+  "unsafe": {
+    "bindings": [
+      {
+        "name": "RATE_LIMIT_WRITE",
+        "type": "ratelimit",
+        "namespace_id": "1001",
+        "simple": { "limit": 10, "period": 60 }
+      },
+      {
+        "name": "RATE_LIMIT_COMMENT",
+        "type": "ratelimit",
+        "namespace_id": "1002",
+        "simple": { "limit": 3, "period": 60 }
+      }
+    ]
+  },
+
+  // 비밀이 아닌 설정만 여기 둔다.
+  // 비밀값(TURNSTILE_SECRET_KEY, VISITOR_HASH_SALT, ADMIN_EMAILS)은
+  // `wrangler secret put` 으로 주입한다. 공개 저장소이므로 절대 여기 쓰지 않는다.
+  "vars": {
+    "ENVIRONMENT": "production",
+    "SITE_URL": "https://www.namsu.kim",
+    "ADMIN_URL": "https://admin.namsu.kim",
+    "MEDIA_PUBLIC_BASE_URL": "https://media.namsu.kim",
+    "CF_ACCESS_TEAM_DOMAIN": "",
+    "CF_ACCESS_AUD": "",
+    "COMMENTS_REQUIRE_APPROVAL": "true"
+  }
+}

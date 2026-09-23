@@ -1,0 +1,237 @@
+import { comments, posts, type CommentStatus, type Db } from '@namsu/db';
+import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
+
+import { ApiError } from '../lib/errors';
+import { type Cursor, slicePage } from '../lib/pagination';
+
+/** 대댓글 최대 깊이. 0 = 최상위. 너무 깊어지면 모바일에서 읽기 어렵다. */
+const MAX_REPLY_DEPTH = 2;
+
+export interface PublicComment {
+  id: number;
+  parentId: number | null;
+  authorName: string;
+  authorWebsite: string | null;
+  body: string;
+  isOwner: boolean;
+  createdAt: number;
+  replies: PublicComment[];
+}
+
+/**
+ * 공개 댓글 조회.
+ *
+ * author_email 은 여기서 절대 SELECT 하지 않는다.
+ * 답글 알림과 아바타 해시에만 쓰는 값이고, 공개 응답에 섞여 들어가면
+ * 되돌릴 수 없다. "응답 타입에서 빼는" 것으로는 부족하고
+ * 애초에 DB 에서 읽지 않는 것이 확실하다.
+ */
+export async function listApprovedComments(db: Db, postId: number): Promise<PublicComment[]> {
+  const rows = await db
+    .select({
+      id: comments.id,
+      parentId: comments.parentId,
+      authorName: comments.authorName,
+      authorWebsite: comments.authorWebsite,
+      body: comments.body,
+      isOwner: comments.isOwner,
+      createdAt: comments.createdAt,
+    })
+    .from(comments)
+    .where(and(eq(comments.postId, postId), eq(comments.status, 'approved'), isNull(comments.deletedAt)))
+    .orderBy(asc(comments.createdAt));
+
+  const nodes = new Map<number, PublicComment>();
+  for (const row of rows) nodes.set(row.id, { ...row, replies: [] });
+
+  const roots: PublicComment[] = [];
+  for (const node of nodes.values()) {
+    const parent = node.parentId == null ? null : nodes.get(node.parentId);
+    // 부모가 승인되지 않아 목록에 없으면 최상위로 올린다 (고아 댓글이 사라지지 않게).
+    if (parent) parent.replies.push(node);
+    else roots.push(node);
+  }
+  return roots;
+}
+
+export interface CreateCommentInput {
+  postId: number;
+  parentId: number | null;
+  authorName: string;
+  authorEmail: string | null;
+  authorWebsite: string | null;
+  body: string;
+  visitorHash: string;
+  userAgent: string | null;
+  autoApprove: boolean;
+}
+
+export async function createComment(db: Db, input: CreateCommentInput) {
+  const [post] = await db
+    .select({ id: posts.id, allowComments: posts.allowComments })
+    .from(posts)
+    .where(and(eq(posts.id, input.postId), eq(posts.status, 'published'), isNull(posts.deletedAt)))
+    .limit(1);
+
+  if (!post) throw ApiError.notFound('글을 찾을 수 없습니다.');
+  if (!post.allowComments) throw ApiError.forbidden('이 글은 댓글을 받지 않습니다.');
+
+  if (input.parentId != null) {
+    const [parent] = await db
+      .select({ id: comments.id, postId: comments.postId, parentId: comments.parentId, status: comments.status })
+      .from(comments)
+      .where(and(eq(comments.id, input.parentId), isNull(comments.deletedAt)))
+      .limit(1);
+
+    if (!parent || parent.postId !== input.postId) {
+      throw ApiError.badRequest('답글을 달 댓글을 찾을 수 없습니다.');
+    }
+    if (parent.status !== 'approved') {
+      throw ApiError.badRequest('아직 공개되지 않은 댓글에는 답글을 달 수 없습니다.');
+    }
+
+    const depth = await replyDepth(db, parent.id);
+    if (depth >= MAX_REPLY_DEPTH) {
+      throw ApiError.unprocessable('답글은 이 단계까지만 달 수 있습니다.');
+    }
+  }
+
+  const [row] = await db
+    .insert(comments)
+    .values({
+      postId: input.postId,
+      parentId: input.parentId,
+      authorName: input.authorName,
+      authorEmail: input.authorEmail,
+      authorWebsite: input.authorWebsite,
+      body: input.body,
+      visitorHash: input.visitorHash,
+      userAgent: input.userAgent,
+      status: input.autoApprove ? 'approved' : 'pending',
+    })
+    .returning({ id: comments.id, status: comments.status, createdAt: comments.createdAt });
+
+  return row!;
+}
+
+/** 조상을 거슬러 올라가며 깊이를 센다. MAX_REPLY_DEPTH 가 작아 왕복도 적다. */
+async function replyDepth(db: Db, commentId: number): Promise<number> {
+  let depth = 0;
+  let cursor: number | null = commentId;
+
+  while (cursor != null && depth <= MAX_REPLY_DEPTH) {
+    const [row]: { parentId: number | null }[] = await db
+      .select({ parentId: comments.parentId })
+      .from(comments)
+      .where(eq(comments.id, cursor))
+      .limit(1);
+    if (!row) break;
+    cursor = row.parentId;
+    if (cursor != null) depth += 1;
+  }
+  return depth;
+}
+
+/**
+ * 같은 방문자가 방금 똑같은 내용을 또 보냈는지 본다.
+ * 더블클릭이나 재전송으로 같은 댓글이 두 번 달리는 것을 막는다.
+ */
+export async function isDuplicateComment(
+  db: Db,
+  visitorHash: string,
+  postId: number,
+  body: string,
+): Promise<boolean> {
+  const since = Math.floor(Date.now() / 1000) - 300; // 5분
+  const [row] = await db
+    .select({ id: comments.id })
+    .from(comments)
+    .where(
+      and(
+        eq(comments.visitorHash, visitorHash),
+        eq(comments.postId, postId),
+        eq(comments.body, body),
+        sql`${comments.createdAt} > ${since}`,
+      ),
+    )
+    .limit(1);
+  return row != null;
+}
+
+// ---------------------------------------------------------------------------
+// 관리자 (모더레이션)
+// ---------------------------------------------------------------------------
+
+export async function listCommentsForModeration(
+  db: Db,
+  opts: { limit: number; cursor: Cursor | null; status?: CommentStatus },
+) {
+  const filters = [isNull(comments.deletedAt)];
+  if (opts.status) filters.push(eq(comments.status, opts.status));
+
+  if (opts.cursor) {
+    const { sortValue, id } = opts.cursor;
+    filters.push(
+      or(
+        sql`${comments.createdAt} < ${sortValue}`,
+        and(sql`${comments.createdAt} = ${sortValue}`, sql`${comments.id} < ${id}`),
+      )!,
+    );
+  }
+
+  const rows = await db
+    .select({
+      id: comments.id,
+      postId: comments.postId,
+      postSlug: posts.slug,
+      postTitle: posts.title,
+      parentId: comments.parentId,
+      authorName: comments.authorName,
+      // 관리자 화면에서는 이메일을 보여준다 (스팸 판단과 답장에 필요하다).
+      authorEmail: comments.authorEmail,
+      authorWebsite: comments.authorWebsite,
+      body: comments.body,
+      status: comments.status,
+      createdAt: comments.createdAt,
+    })
+    .from(comments)
+    .innerJoin(posts, eq(posts.id, comments.postId))
+    .where(and(...filters))
+    .orderBy(desc(comments.createdAt), desc(comments.id))
+    .limit(opts.limit + 1);
+
+  return slicePage(rows, opts.limit, (row) => ({ sortValue: row.createdAt, id: row.id }));
+}
+
+export async function countPendingComments(db: Db): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(comments)
+    .where(and(eq(comments.status, 'pending'), isNull(comments.deletedAt)));
+  return row?.n ?? 0;
+}
+
+export async function setCommentStatus(db: Db, id: number, status: CommentStatus) {
+  const result = await db
+    .update(comments)
+    .set({ status })
+    .where(and(eq(comments.id, id), isNull(comments.deletedAt)))
+    .returning({ id: comments.id, status: comments.status });
+
+  if (result.length === 0) throw ApiError.notFound('댓글을 찾을 수 없습니다.');
+  return result[0]!;
+}
+
+/**
+ * 댓글 소프트 삭제.
+ * 하드 삭제하면 대댓글이 ON DELETE CASCADE 로 같이 사라진다.
+ */
+export async function softDeleteComment(db: Db, id: number) {
+  const result = await db
+    .update(comments)
+    .set({ deletedAt: Math.floor(Date.now() / 1000), status: 'deleted' })
+    .where(and(eq(comments.id, id), isNull(comments.deletedAt)))
+    .returning({ id: comments.id });
+
+  if (result.length === 0) throw ApiError.notFound('댓글을 찾을 수 없습니다.');
+}

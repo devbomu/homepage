@@ -91,6 +91,17 @@ FTS5 가상 테이블과 트리거는 drizzle-kit 이 표현하지 못하므로
 - **검색은 FTS5 trigram 토크나이저**를 쓴다. 한국어는 공백 토큰화가 무의미해서 부분일치가 필요하다.
   대신 2글자 이하 질의는 매칭되지 않아 쿼리 계층에서 `LIKE` 로 폴백한다.
 
+## 테스트
+
+```bash
+pnpm --filter @namsu/api test       # 유닛 (마크다운 렌더·XSS 차단·분량 계산)
+pnpm --filter @namsu/api dev        # 다른 터미널에서 먼저 띄우고
+pnpm --filter @namsu/api test:e2e   # 종단 (라우팅·D1·트리거·레이트리밋)
+```
+
+종단 테스트는 실제로 기동한 Worker 를 HTTP 로 두드린다.
+매 실행 전 DB 를 시드 상태로 되돌리므로 결과가 항상 같다.
+
 ## 배포
 
 `main` 에 푸시하면 GitHub Actions 가 변경된 앱만 골라 배포한다.

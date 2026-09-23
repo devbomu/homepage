@@ -9,12 +9,13 @@
   },
   "scripts": {
     "generate": "drizzle-kit generate",
-    "migrate:local": "wrangler d1 migrations apply namsu-kim --local",
+    "migrate:local": "wrangler d1 migrations apply namsu-kim --local --persist-to ../../.wrangler-state",
     "migrate:remote": "wrangler d1 migrations apply namsu-kim --remote",
-    "seed:local": "wrangler d1 execute namsu-kim --local --file=./seed.sql",
-    "reset:local": "rm -rf .wrangler && pnpm migrate:local && pnpm seed:local",
+    "seed:local": "wrangler d1 execute namsu-kim --local --persist-to ../../.wrangler-state --file=./seed.sql",
+    "reset:local": "rm -rf ../../.wrangler-state && pnpm migrate:local && pnpm seed:local",
     "studio": "drizzle-kit studio",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "exec:local": "wrangler d1 execute namsu-kim --local --persist-to ../../.wrangler-state"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.3"
