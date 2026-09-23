@@ -35,7 +35,7 @@ check("GET /health", s == 200 and b["status"] == "ok", f"{s} {b}")
 print("\n=== 분류 체계 ===")
 s, b = call("GET", "/v1/categories")
 tree = b["data"] if s == 200 else []
-check("카테고리 트리 조회", s == 200 and len(tree) == 2, f"{s} 루트 {len(tree)}개")
+check("카테고리 트리 조회", s == 200 and len(tree) == 3, f"{s} 루트 {len(tree)}개")
 dev = next((n for n in tree if n["slug"] == "dev"), None)
 check("2단계 중첩", dev is not None and len(dev["children"]) == 2, str(dev and len(dev["children"])))
 backend = next((n for n in (dev["children"] if dev else []) if n["slug"] == "backend"), None)
@@ -76,6 +76,18 @@ s, b = call("GET", "/v1/posts?category=life")
 check("다른 카테고리는 빈 결과", s == 200 and len(b["data"]) == 0)
 s, b = call("GET", "/v1/posts?category=nope")
 check("없는 카테고리는 404", s == 404)
+
+print("\n=== LIKE 와일드카드가 든 slug (회귀) ===")
+# SQLite 는 ESCAPE 절이 없으면 백슬래시를 이스케이프 문자로 보지 않는다.
+# 그 절이 빠지면 '_' 가 든 경로의 하위 조회가 조용히 빈 결과를 낸다.
+s, b = call("GET", "/v1/categories/a_b")
+check("'_' 포함 카테고리 조회", s == 200 and b["data"]["slug"] == "a_b", str(s))
+s, b = call("GET", "/v1/posts?category=a_b")
+check("'_' 포함 카테고리 하위 조회가 500/404 없이 동작", s == 200, f"{s}")
+s, b = call("GET", "/v1/categories")
+node = next((n for n in b["data"] if n["slug"] == "a_b"), None) if s == 200 else None
+check("'_' 카테고리의 자식이 트리에 붙음", node is not None and len(node["children"]) == 1,
+      str(node and len(node["children"])))
 
 print("\n=== 검색 (한국어) ===")
 for q, expect, label in [("홈페이지", 1, "3글자 이상 → FTS5"), ("개발", 0, "2글자 → LIKE 폴백"),

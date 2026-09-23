@@ -87,6 +87,14 @@ check("이동 후 새 경로로 글이 조회됨", s == 200 and len(b["data"]) =
 s, b = call("GET", "/v1/posts?category=dev")
 check("옛 경로에서는 안 나옴", s == 200 and len(b["data"]) == 0, f"{s} {len(b['data']) if s==200 else ''}")
 
+print("\n=== slug 정규화 ===")
+# slugify 는 '_' 를 '-' 로 바꾼다. 덕분에 관리자 API 로는 LIKE 와일드카드가
+# slug 에 들어갈 수 없다. 이 동작이 바뀌면 taxonomy 의 ESCAPE 처리가
+# 실제로 필요해지므로 여기서 고정해 둔다 (seed 쪽에 대응 테스트가 있다).
+s, b = call("POST", "/v1/admin/categories", {"name": "언더바", "slug": "a_b"})
+check("'_' 가 '-' 로 정규화됨", s == 201 and b["data"]["slug"] == "a-b", str(b.get("data", {}).get("slug")))
+if s == 201: call("DELETE", f"/v1/admin/categories/{b['data']['id']}")
+
 print("\n=== 카테고리 삭제 규칙 ===")
 s, b = call("DELETE", f"/v1/admin/categories/{ids['backend']}")
 check("자식 있으면 409 + 읽을 수 있는 메시지", s == 409 and "하위" in b["error"]["message"], f"{s} {b.get('error')}")

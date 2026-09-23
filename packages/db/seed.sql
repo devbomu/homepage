@@ -38,6 +38,14 @@ INSERT INTO categories (parent_id, slug, name, path, depth, sort_order)
   SELECT id, 'infra', '인프라', path || '/infra', depth + 1, 1 FROM categories WHERE path = 'dev/backend';
 INSERT INTO categories (parent_id, slug, name, path, depth, sort_order) VALUES (NULL, 'life', '일상', 'life', 0, 2);
 
+-- LIKE 와일드카드가 든 slug.
+-- slugify 는 '_' 를 '-' 로 바꾸므로 관리자 API 로는 이런 slug 가 안 생기지만,
+-- DB 제약은 허용한다. 하위 트리 조회가 ESCAPE 절 없이 깨지던 적이 있어
+-- 회귀 검증용으로 남겨둔다.
+INSERT INTO categories (parent_id, slug, name, path, depth, sort_order) VALUES (NULL, 'a_b', '언더바 상위', 'a_b', 0, 9);
+INSERT INTO categories (parent_id, slug, name, path, depth, sort_order)
+  SELECT id, 'kid', '언더바 하위', path || '/kid', depth + 1, 1 FROM categories WHERE path = 'a_b';
+
 INSERT INTO tags (slug, name) VALUES
   ('cloudflare', 'Cloudflare'),
   ('astro', 'Astro'),

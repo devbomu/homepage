@@ -1,11 +1,24 @@
 import { categories, categoryPath, posts, postTags, series, tags, type Db } from '@namsu/db';
-import { and, asc, count, eq, isNull, like, or, sql } from 'drizzle-orm';
+import { and, asc, count, eq, isNull, or, sql } from 'drizzle-orm';
 
 import { ApiError } from '../lib/errors';
 
 // ---------------------------------------------------------------------------
 // 카테고리
 // ---------------------------------------------------------------------------
+
+/**
+ * 어떤 path 의 자손 전체를 고르는 조건.
+ *
+ * slug 에는 LIKE 와일드카드(_ , %)가 들어올 수 있어서 패턴을 이스케이프하는데,
+ * SQLite 는 ESCAPE 절이 있어야 그 백슬래시를 이스케이프 문자로 인정한다.
+ * 이 절을 빠뜨리면 '_' 가 들어간 경로에서 조용히 빈 결과가 나온다 —
+ * 조회는 그렇다 쳐도, 카테고리를 옮길 때 자손 갱신이 통째로 누락되어
+ * 트리가 소리 없이 깨진다.
+ */
+function descendantsOf(path: string) {
+  return sql`${categories.path} like ${categoryPath.descendantPattern(path)} escape '\\'`;
+}
 
 export interface CategoryNode {
   id: number;
@@ -107,9 +120,7 @@ export async function getDescendantCategoryIds(db: Db, path: string): Promise<nu
   const rows = await db
     .select({ id: categories.id })
     .from(categories)
-    .where(
-      or(eq(categories.path, path), like(categories.path, categoryPath.descendantPattern(path))),
-    );
+    .where(or(eq(categories.path, path), descendantsOf(path)));
   return rows.map((r) => r.id);
 }
 
@@ -238,7 +249,7 @@ export async function updateCategory(
         path: sql`${nextPath} || substr(${categories.path}, ${current.path.length + 1})`,
         depth: sql`${categories.depth} + ${nextDepth - current.depth}`,
       })
-      .where(like(categories.path, categoryPath.descendantPattern(current.path)));
+      .where(descendantsOf(current.path));
 
     // D1 batch 는 원자적이다. 자손 갱신이 실패하면 본인 갱신도 롤백된다.
     // 이 둘이 갈라지면 트리가 조용히 깨지므로 반드시 같이 성공해야 한다.
