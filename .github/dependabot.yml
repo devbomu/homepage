@@ -21,6 +21,13 @@ updates:
       # 메이저는 따로 본다. 깨질 수 있어서 각각 확인이 필요하다.
       major:
         update-types: [major]
+    ignore:
+      # TypeScript 7 은 네이티브(Go) 포트라 프로그래매틱 API(ts.sys, ts.findConfigFile)를
+      # 노출하지 않는다. @astrojs/language-server 가 그 API 에 의존해서
+      # `astro check` 가 아예 기동하지 못한다 — 설정으로 넘을 수 있는 벽이 아니다.
+      # Astro 쪽이 대응하면 이 항목을 지우고 다시 시도한다.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
     commit-message:
       prefix: 'chore(deps)'
 
