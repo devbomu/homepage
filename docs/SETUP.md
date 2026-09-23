@@ -217,6 +217,24 @@ cd apps/api && npx wrangler secret put RESEND_API_KEY
 
 비밀 댓글의 답글은 공개 화면에 내용이 나가지 않으므로, 이 메일이 답을 읽는 유일한 통로다.
 
+## 11. 방문 통계 (선택)
+
+둘 다 관리자 **설정** 화면에서 값만 넣으면 켜진다. 비워 두면 스크립트가 들어가지 않는다.
+
+**Cloudflare Web Analytics** — 쿠키를 쓰지 않아 동의 배너가 필요 없다.
+대시보드 → Analytics & Logs → Web Analytics → 사이트 추가 → `www.namsu.kim`.
+JS 스니펫에서 `token` 값만 복사해 설정의 _Cloudflare Web Analytics 토큰_ 에 넣는다.
+(스니펫 자체를 붙일 필요는 없다. 사이트가 알아서 넣는다.)
+
+**Google Analytics 4** — [analytics.google.com](https://analytics.google.com) 에서
+속성을 만들고 데이터 스트림을 웹으로 추가하면 `G-` 로 시작하는 측정 ID 가 나온다.
+그 값을 설정의 _Google Analytics 측정 ID_ 에 넣는다.
+쿠키를 심으므로 개인정보처리방침에 수집 사실을 적어야 한다.
+`anonymize_ip` 는 켜서 보낸다.
+
+Search Console 과 GA4 를 연결하면 검색어 데이터도 GA 에서 볼 수 있다
+(GA4 관리 → 제품 링크 → Search Console 링크).
+
 ## 권장 설정 (선택)
 
 | 기능           | 왜                                                             |

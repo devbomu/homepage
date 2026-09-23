@@ -10,6 +10,16 @@ const FIELDS = [
   { key: 'site.description', label: '사이트 설명', hint: '검색 결과와 RSS 에 쓰입니다.' },
   { key: 'site.author', label: '작성자 이름' },
   { key: 'site.locale', label: '언어', hint: '예: ko' },
+  {
+    key: 'site.cfBeaconToken',
+    label: 'Cloudflare Web Analytics 토큰',
+    hint: 'Cloudflare 대시보드 → Web Analytics → 사이트 추가에서 받은 토큰. 쿠키를 쓰지 않아 동의 배너가 필요 없습니다. 비우면 넣지 않습니다.',
+  },
+  {
+    key: 'site.gaMeasurementId',
+    label: 'Google Analytics 측정 ID',
+    hint: 'G- 로 시작하는 GA4 측정 ID. 쿠키를 심으므로 개인정보처리방침에 수집 사실을 적어야 합니다. 비우면 넣지 않습니다.',
+  },
 ] as const;
 
 /**

@@ -63,6 +63,14 @@ const isSvgFavicon = faviconUrl.endsWith('.svg');
 const appleTouchIcon = isSvgFavicon ? '/apple-touch-icon.png' : faviconUrl;
 
 const pageDescription = description ?? siteDescription;
+
+/*
+ * 방문 통계. 둘 다 관리자 설정에서 켜고 끈다 — 값이 비어 있으면 스크립트를 넣지 않는다.
+ * Cloudflare 쪽은 쿠키를 쓰지 않아 동의 배너가 필요 없고,
+ * GA4 는 쿠키를 심으므로 개인정보처리방침에 수집 사실을 적어야 한다.
+ */
+const cfBeaconToken = settings['site.cfBeaconToken'] || null;
+const gaMeasurementId = settings['site.gaMeasurementId'] || null;
 const canonical = new URL(Astro.url.pathname, Astro.site ?? Astro.url.origin);
 
 /*
@@ -140,5 +148,32 @@ const shareImage = new URL(
     </main>
 
     <Footer siteTitle={siteTitle} author={author} social={settings['site.social'] ?? {}} />
+    {cfBeaconToken && (
+      <script
+        is:inline
+        defer
+        src="https://static.cloudflareinsights.com/beacon.min.js"
+        data-cf-beacon={`{"token": "${cfBeaconToken}"}`}
+      ></script>
+    )}
+
+    {gaMeasurementId && (
+      <Fragment>
+        <script
+          is:inline
+          async
+          src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
+        ></script>
+        <script is:inline define:vars={{ gaMeasurementId }}>
+          window.dataLayer = window.dataLayer || [];
+          function gtag() {
+            window.dataLayer.push(arguments);
+          }
+          gtag('js', new Date());
+          // IP 를 통째로 넘기지 않는다. 개인 블로그에 필요한 것은 방문 수뿐이다.
+          gtag('config', gaMeasurementId, { anonymize_ip: true });
+        </script>
+      </Fragment>
+    )}
   </body>
 </html>
