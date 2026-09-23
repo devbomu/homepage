@@ -54,8 +54,12 @@
     "SITE_URL": "https://www.namsu.kim",
     "ADMIN_URL": "https://admin.namsu.kim",
     "MEDIA_PUBLIC_BASE_URL": "https://media.namsu.kim",
-    "CF_ACCESS_TEAM_DOMAIN": "",
-    "CF_ACCESS_AUD": "",
+    // Access 앱의 팀 도메인과 AUD 태그. 둘 다 비밀값이 아니다.
+    // 팀 도메인은 로그인 리다이렉트 주소에 그대로 드러나고, AUD 는 JWT 의
+    // aud 클레임이라 브라우저도 들고 있다. 이 값을 안다고 토큰을 위조할 수는 없다
+    // (서명은 Cloudflare 의 비공개 키로만 만들어진다).
+    "CF_ACCESS_TEAM_DOMAIN": "kns-bomu.cloudflareaccess.com",
+    "CF_ACCESS_AUD": "6ea8d410705e7f9fde1bc33bda4ce89efa09460756be5601e314d0df12dc470d",
     "COMMENTS_REQUIRE_APPROVAL": "true"
   }
 }
