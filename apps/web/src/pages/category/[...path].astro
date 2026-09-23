@@ -1,0 +1,79 @@
+---
+import Breadcrumb from '@components/Breadcrumb.astro';
+import CategoryTree from '@components/CategoryTree.astro';
+import PostCard from '@components/PostCard.astro';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { api, type CategoryNode, type PageMeta, type PostSummary } from '@lib/api';
+
+const path = Astro.params.path;
+if (!path) return Astro.rewrite('/404');
+
+const category = await api.categories.get(path);
+if (!category) return Astro.rewrite('/404');
+
+const cursor = Astro.url.searchParams.get('cursor') ?? undefined;
+
+let posts: PostSummary[] = [];
+let meta: PageMeta | undefined;
+let tree: CategoryNode[] = [];
+
+try {
+  // 하위 카테고리의 글까지 함께 나온다 (서버가 path 프리픽스로 묶어준다).
+  const [postsResult, treeResult] = await Promise.all([
+    api.posts.list({ limit: 12, cursor, category: path }),
+    api.categories.tree(),
+  ]);
+  posts = postsResult.data ?? [];
+  meta = postsResult.meta;
+  tree = treeResult.data ?? [];
+} catch (error) {
+  console.error('카테고리 글을 불러오지 못했습니다', error);
+}
+
+const baseUrl = `/category/${path.split('/').map(encodeURIComponent).join('/')}`;
+---
+
+<BaseLayout
+  title={category.name}
+  description={category.description ?? `${category.name} 카테고리의 글`}
+  cacheSeconds={60}
+>
+  <div class="grid gap-8 lg:grid-cols-[1fr_16rem]">
+    <div>
+      <Breadcrumb items={category.breadcrumb} />
+
+      <header class="mt-4 mb-6">
+        <h1 class="text-2xl font-bold">{category.name}</h1>
+        {category.description && (
+          <p class="text-base-content/70 mt-2 text-sm">{category.description}</p>
+        )}
+        <p class="text-base-content/50 mt-1 text-sm">
+          하위 카테고리를 포함해 {category.postCount}개의 글
+        </p>
+      </header>
+
+      {posts.length === 0 ? (
+        <p class="text-base-content/60 py-12 text-center text-sm">이 카테고리에는 아직 글이 없습니다.</p>
+      ) : (
+        <div class="grid gap-5 sm:grid-cols-2">
+          {posts.map((post) => <PostCard post={post} />)}
+        </div>
+      )}
+
+      {meta?.hasMore && meta.nextCursor && (
+        <div class="mt-8 flex justify-center">
+          <a href={`${baseUrl}?cursor=${encodeURIComponent(meta.nextCursor)}`} class="btn btn-outline btn-sm">
+            더 보기
+          </a>
+        </div>
+      )}
+    </div>
+
+    <aside class="order-first lg:order-last">
+      <div class="frost-card sticky top-20 p-4">
+        <p class="mb-2 text-sm font-semibold">카테고리</p>
+        <CategoryTree nodes={tree} activePath={category.path} />
+      </div>
+    </aside>
+  </div>
+</BaseLayout>

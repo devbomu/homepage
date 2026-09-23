@@ -2,6 +2,9 @@
 .env
 .env.*
 !.env.example
+# Astro 의 PUBLIC_* 는 빌드 시점에 코드로 치환되므로 운영 값이 빌드 환경에 있어야 한다.
+# 전부 브라우저에 노출되는 공개 설정이라 커밋해도 된다 (비밀값은 여기 넣지 않는다).
+!.env.production
 # wrangler 의 로컬 비밀값 파일. 이름이 .env 패턴에 안 걸리므로 따로 적는다.
 .dev.vars
 .dev.vars.*

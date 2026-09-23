@@ -1,0 +1,55 @@
+---
+import CategoryTree from '@components/CategoryTree.astro';
+import PostCard from '@components/PostCard.astro';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { api, type CategoryNode, type PageMeta, type PostSummary } from '@lib/api';
+
+const cursor = Astro.url.searchParams.get('cursor') ?? undefined;
+
+let posts: PostSummary[] = [];
+let meta: PageMeta | undefined;
+let categories: CategoryNode[] = [];
+
+try {
+  const [postsResult, categoriesResult] = await Promise.all([
+    api.posts.list({ limit: 12, cursor }),
+    api.categories.tree(),
+  ]);
+  posts = postsResult.data ?? [];
+  meta = postsResult.meta;
+  categories = categoriesResult.data ?? [];
+} catch (error) {
+  console.error('글 목록을 불러오지 못했습니다', error);
+}
+---
+
+<BaseLayout title="글" description="지금까지 쓴 글 전체" cacheSeconds={60}>
+  <div class="grid gap-8 lg:grid-cols-[1fr_16rem]">
+    <div>
+      <h1 class="mb-6 text-2xl font-bold">글</h1>
+
+      {posts.length === 0 ? (
+        <p class="text-base-content/60 py-12 text-center text-sm">글이 없습니다.</p>
+      ) : (
+        <div class="grid gap-5 sm:grid-cols-2">
+          {posts.map((post) => <PostCard post={post} />)}
+        </div>
+      )}
+
+      {meta?.hasMore && meta.nextCursor && (
+        <div class="mt-8 flex justify-center">
+          <a href={`/blog?cursor=${encodeURIComponent(meta.nextCursor)}`} class="btn btn-outline btn-sm">
+            더 보기
+          </a>
+        </div>
+      )}
+    </div>
+
+    <aside class="order-first lg:order-last">
+      <div class="frost-card sticky top-20 p-4">
+        <p class="mb-2 text-sm font-semibold">카테고리</p>
+        <CategoryTree nodes={categories} />
+      </div>
+    </aside>
+  </div>
+</BaseLayout>

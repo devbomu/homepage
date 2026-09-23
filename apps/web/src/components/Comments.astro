@@ -1,0 +1,194 @@
+---
+import { formatRelative, toIso } from '@lib/format';
+
+interface CommentNode {
+  id: number;
+  parentId: number | null;
+  authorName: string;
+  authorWebsite: string | null;
+  body: string;
+  isOwner: boolean;
+  createdAt: number;
+  replies: CommentNode[];
+}
+
+interface Props {
+  slug: string;
+  allowComments: boolean;
+  comments: CommentNode[];
+  commentCount: number;
+}
+
+const { slug, allowComments, comments, commentCount } = Astro.props;
+const apiUrl = import.meta.env.PUBLIC_API_URL;
+const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
+---
+
+<section id="comments" class="mt-12" aria-labelledby="comments-heading">
+  <h2 id="comments-heading" class="mb-4 text-xl font-bold">댓글 {commentCount > 0 && `(${commentCount})`}</h2>
+
+  {comments.length === 0 && (
+    <p class="text-base-content/60 py-6 text-sm">아직 댓글이 없습니다. 첫 댓글을 남겨보세요.</p>
+  )}
+
+  <ol class="space-y-4">
+    {comments.map((comment) => (
+      <li class="frost-card p-4">
+        <div class="flex items-baseline gap-2">
+          <span class="font-semibold">
+            {comment.authorWebsite ? (
+              <a href={comment.authorWebsite} class="link link-hover" rel="nofollow noopener noreferrer" target="_blank">
+                {comment.authorName}
+              </a>
+            ) : (
+              comment.authorName
+            )}
+          </span>
+          {comment.isOwner && <span class="badge badge-primary badge-xs">작성자</span>}
+          <time class="text-base-content/50 text-xs" datetime={toIso(comment.createdAt)}>
+            {formatRelative(comment.createdAt)}
+          </time>
+        </div>
+
+        <!-- 댓글은 마크다운으로 렌더하지 않는다. 평문으로만 다뤄야 안전하다. -->
+        <p class="mt-2 text-sm whitespace-pre-wrap">{comment.body}</p>
+
+        {comment.replies.length > 0 && (
+          <ol class="border-base-300 mt-4 space-y-3 border-l-2 pl-4">
+            {comment.replies.map((reply) => (
+              <li>
+                <div class="flex items-baseline gap-2">
+                  <span class="text-sm font-semibold">{reply.authorName}</span>
+                  {reply.isOwner && <span class="badge badge-primary badge-xs">작성자</span>}
+                  <time class="text-base-content/50 text-xs" datetime={toIso(reply.createdAt)}>
+                    {formatRelative(reply.createdAt)}
+                  </time>
+                </div>
+                <p class="mt-1 text-sm whitespace-pre-wrap">{reply.body}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </li>
+    ))}
+  </ol>
+
+  {allowComments ? (
+    <form data-comment-form data-slug={slug} data-api={apiUrl} class="frost-card mt-6 space-y-3 p-5">
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div class="form-control">
+          <label for="comment-author" class="label-text mb-1 block text-sm">
+            이름 <span class="text-error" aria-hidden="true">*</span>
+          </label>
+          <input
+            id="comment-author"
+            name="authorName"
+            required
+            maxlength="50"
+            autocomplete="nickname"
+            class="input input-bordered input-sm w-full"
+          />
+        </div>
+
+        <div class="form-control">
+          <label for="comment-email" class="label-text mb-1 block text-sm">이메일 (선택)</label>
+          <input
+            id="comment-email"
+            name="authorEmail"
+            type="email"
+            maxlength="200"
+            autocomplete="email"
+            aria-describedby="comment-email-help"
+            class="input input-bordered input-sm w-full"
+          />
+          <span id="comment-email-help" class="label-text-alt text-base-content/50 mt-1 block text-xs">
+            공개되지 않습니다. 답글 알림에만 사용합니다.
+          </span>
+        </div>
+      </div>
+
+      <div class="form-control">
+        <label for="comment-body" class="label-text mb-1 block text-sm">
+          내용 <span class="text-error" aria-hidden="true">*</span>
+        </label>
+        <textarea
+          id="comment-body"
+          name="body"
+          required
+          maxlength="5000"
+          rows="4"
+          class="textarea textarea-bordered w-full"></textarea>
+      </div>
+
+      {turnstileKey && <div class="cf-turnstile" data-sitekey={turnstileKey}></div>}
+
+      <p data-comment-message role="status" class="hidden text-sm"></p>
+
+      <div class="flex justify-end">
+        <button type="submit" class="btn btn-primary btn-sm">댓글 남기기</button>
+      </div>
+    </form>
+  ) : (
+    <p class="text-base-content/60 mt-6 text-sm">이 글은 댓글을 받지 않습니다.</p>
+  )}
+</section>
+
+{turnstileKey && (
+  <script is:inline async defer src="https://challenges.cloudflare.com/turnstile/v0/api.js"></script>
+)}
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-comment-form]');
+
+  if (form) {
+    const api = form.dataset.api!;
+    const slug = encodeURIComponent(form.dataset.slug!);
+    const message = form.querySelector<HTMLElement>('[data-comment-message]')!;
+    const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+
+    const show = (text: string, kind: 'ok' | 'error') => {
+      message.textContent = text;
+      message.className = `text-sm ${kind === 'ok' ? 'text-success' : 'text-error'}`;
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      message.className = 'hidden text-sm';
+
+      const data = new FormData(form);
+      const payload: Record<string, unknown> = {
+        authorName: String(data.get('authorName') ?? '').trim(),
+        body: String(data.get('body') ?? '').trim(),
+      };
+
+      // 빈 문자열을 보내면 서버의 이메일 형식 검사에 걸린다. 아예 빼서 보낸다.
+      const email = String(data.get('authorEmail') ?? '').trim();
+      if (email) payload.authorEmail = email;
+
+      const token = data.get('cf-turnstile-response');
+      if (typeof token === 'string' && token) payload.turnstileToken = token;
+
+      try {
+        const response = await fetch(`${api}/v1/posts/${slug}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const body = await response.json().catch(() => null);
+
+        if (response.ok) {
+          show(body?.data?.message ?? '댓글이 등록되었습니다.', 'ok');
+          form.reset();
+          window.turnstile?.reset();
+        } else {
+          show(body?.error?.message ?? '등록에 실패했습니다.', 'error');
+        }
+      } catch {
+        show('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.', 'error');
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  }
+</script>

@@ -1,0 +1,4 @@
+# 로컬 개발용. .dev.vars 로 복사해 쓴다 (.gitignore 대상).
+PUBLIC_SITE_URL="http://localhost:4321"
+PUBLIC_API_URL="http://localhost:8787"
+PUBLIC_TURNSTILE_SITE_KEY=""

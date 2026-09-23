@@ -1,0 +1,29 @@
+---
+import CategoryTree from '@components/CategoryTree.astro';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { api, type CategoryNode } from '@lib/api';
+
+let tree: CategoryNode[] = [];
+try {
+  tree = (await api.categories.tree()).data ?? [];
+} catch (error) {
+  console.error('카테고리를 불러오지 못했습니다', error);
+}
+
+const total = (function count(nodes: CategoryNode[]): number {
+  return nodes.reduce((sum, node) => sum + 1 + count(node.children), 0);
+})(tree);
+---
+
+<BaseLayout title="카테고리" description="글 분류 전체" cacheSeconds={300}>
+  <h1 class="mb-2 text-2xl font-bold">카테고리</h1>
+  <p class="text-base-content/60 mb-6 text-sm">{total}개의 분류</p>
+
+  {tree.length === 0 ? (
+    <p class="text-base-content/60 py-12 text-center text-sm">카테고리가 없습니다.</p>
+  ) : (
+    <div class="frost-card p-5">
+      <CategoryTree nodes={tree} />
+    </div>
+  )}
+</BaseLayout>

@@ -1,0 +1,28 @@
+---
+interface Props {
+  siteTitle: string;
+  author: string;
+  social: Record<string, string>;
+}
+
+const { siteTitle, author, social } = Astro.props;
+const year = new Date().getFullYear();
+---
+
+<footer class="bg-base-100 mt-12 border-t border-base-300">
+  <div class="content-width flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <p class="font-semibold">{siteTitle}</p>
+      <p class="text-base-content/60 text-sm">© {year} {author}</p>
+    </div>
+
+    <div class="flex items-center gap-4 text-sm">
+      {Object.entries(social).map(([name, url]) => (
+        <a href={url} class="link link-hover capitalize" rel="me noopener noreferrer" target="_blank">
+          {name}
+        </a>
+      ))}
+      <a href="/rss.xml" class="link link-hover">RSS</a>
+    </div>
+  </div>
+</footer>

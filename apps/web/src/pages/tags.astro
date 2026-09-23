@@ -1,0 +1,39 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { api, type TagWithCount } from '@lib/api';
+import { tagUrl } from '@lib/format';
+
+let tags: TagWithCount[] = [];
+try {
+  tags = (await api.tags.list()).data ?? [];
+} catch (error) {
+  console.error('태그를 불러오지 못했습니다', error);
+}
+
+/** 글이 많은 태그를 크게 보여준다 (태그 클라우드). */
+const maxCount = Math.max(1, ...tags.map((tag) => tag.postCount));
+const sizeClass = (count: number) => {
+  const ratio = count / maxCount;
+  if (ratio > 0.66) return 'text-lg font-semibold';
+  if (ratio > 0.33) return 'text-base';
+  return 'text-sm';
+};
+---
+
+<BaseLayout title="태그" description="글에 붙은 태그 전체" cacheSeconds={300}>
+  <h1 class="mb-2 text-2xl font-bold">태그</h1>
+  <p class="text-base-content/60 mb-6 text-sm">{tags.length}개의 태그</p>
+
+  {tags.length === 0 ? (
+    <p class="text-base-content/60 py-12 text-center text-sm">태그가 없습니다.</p>
+  ) : (
+    <div class="frost-card flex flex-wrap gap-3 p-6">
+      {tags.map((tag) => (
+        <a href={tagUrl(tag.slug)} class:list={['link link-hover hover:text-primary', sizeClass(tag.postCount)]}>
+          #{tag.name}
+          <span class="text-base-content/40 ml-1 text-xs">{tag.postCount}</span>
+        </a>
+      ))}
+    </div>
+  )}
+</BaseLayout>

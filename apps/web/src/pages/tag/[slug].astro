@@ -1,0 +1,45 @@
+---
+import PostCard from '@components/PostCard.astro';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { api, type PageMeta, type PostSummary } from '@lib/api';
+
+const { slug } = Astro.params;
+if (!slug) return Astro.rewrite('/404');
+
+const cursor = Astro.url.searchParams.get('cursor') ?? undefined;
+
+let posts: PostSummary[] = [];
+let meta: PageMeta | undefined;
+
+try {
+  const result = await api.posts.list({ limit: 12, cursor, tag: slug });
+  posts = result.data ?? [];
+  meta = result.meta;
+} catch (error) {
+  // 없는 태그면 API 가 404 를 준다.
+  return Astro.rewrite('/404');
+}
+
+// 응답에서 원래 표기(대소문자·공백 포함)를 되찾는다.
+const label = posts[0]?.tags.find((tag) => tag.slug === slug)?.name ?? slug;
+---
+
+<BaseLayout title={`#${label}`} description={`${label} 태그가 붙은 글`} cacheSeconds={60}>
+  <h1 class="mb-6 text-2xl font-bold">#{label}</h1>
+
+  {posts.length === 0 ? (
+    <p class="text-base-content/60 py-12 text-center text-sm">이 태그의 글이 없습니다.</p>
+  ) : (
+    <div class="grid gap-5 sm:grid-cols-2">
+      {posts.map((post) => <PostCard post={post} />)}
+    </div>
+  )}
+
+  {meta?.hasMore && meta.nextCursor && (
+    <div class="mt-8 flex justify-center">
+      <a href={`/tag/${encodeURIComponent(slug)}?cursor=${encodeURIComponent(meta.nextCursor)}`} class="btn btn-outline btn-sm">
+        더 보기
+      </a>
+    </div>
+  )}
+</BaseLayout>

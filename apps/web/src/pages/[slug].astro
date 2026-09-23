@@ -1,0 +1,33 @@
+---
+/**
+ * 관리자가 만든 단독 페이지 (/about, /now, /uses ...).
+ *
+ * 파일 기반 라우트보다 뒤에 매칭되므로 /blog, /tags 같은 고정 경로를 가리지 않는다.
+ */
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { api } from '@lib/api';
+import { formatDate, toIso } from '@lib/format';
+import { extractToc } from '@lib/toc';
+
+const { slug } = Astro.params;
+
+const page = slug ? await api.pages.get(slug) : null;
+if (!page) return Astro.rewrite('/404');
+
+const { html, toc } = extractToc(page.contentHtml ?? '');
+---
+
+<BaseLayout title={page.title} description={page.metaDescription ?? undefined} cacheSeconds={300}>
+  <article class="mx-auto max-w-3xl">
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold">{page.title}</h1>
+      {page.updatedAt && (
+        <p class="text-base-content/50 mt-2 text-sm">
+          마지막 수정 <time datetime={toIso(page.updatedAt)}>{formatDate(page.updatedAt)}</time>
+        </p>
+      )}
+    </header>
+
+    <div class="prose prose-lg max-w-none" set:html={html} />
+  </article>
+</BaseLayout>

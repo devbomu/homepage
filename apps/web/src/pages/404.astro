@@ -1,0 +1,17 @@
+---
+import BaseLayout from '@layouts/BaseLayout.astro';
+
+Astro.response.status = 404;
+---
+
+<BaseLayout title="찾을 수 없음" noindex cacheSeconds={0}>
+  <div class="flex flex-col items-center justify-center gap-4 py-24 text-center">
+    <p class="text-primary text-6xl font-bold">404</p>
+    <h1 class="text-xl font-semibold">찾으시는 페이지가 없습니다</h1>
+    <p class="text-base-content/60 text-sm">주소가 바뀌었거나 삭제된 글일 수 있습니다.</p>
+    <div class="mt-4 flex gap-2">
+      <a href="/" class="btn btn-primary btn-sm">홈으로</a>
+      <a href="/search" class="btn btn-outline btn-sm">검색하기</a>
+    </div>
+  </div>
+</BaseLayout>

@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "namsu-web",
+  // 어댑터가 제공하는 엔트리포인트를 가리킨다 (빌드 산출물 경로가 아니다).
+  // astro dev 와 배포가 같은 진입점을 쓴다.
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-09-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist"
+  },
+
+  "routes": [
+    { "pattern": "www.namsu.kim", "custom_domain": true },
+    { "pattern": "namsu.kim", "custom_domain": true }
+  ],
+
+  // PUBLIC_* 는 여기 두지 않는다.
+  // Astro 가 빌드 시점에 코드로 치환해 버리므로 런타임 var 로는 바뀌지 않는다.
+  // 운영 값은 .env.production 에 있다.
+  "vars": {}
+}

@@ -1,0 +1,43 @@
+---
+import type { CategoryNode } from '@lib/api';
+import { categoryUrl } from '@lib/format';
+
+interface Props {
+  nodes: CategoryNode[];
+  /** 지금 보고 있는 카테고리 path. 해당 가지를 펼치고 표시한다. */
+  activePath?: string | null;
+}
+
+const { nodes, activePath = null } = Astro.props;
+
+/** 활성 경로의 조상이면 펼쳐 둔다. */
+function isOnActiveBranch(node: CategoryNode): boolean {
+  if (!activePath) return false;
+  return activePath === node.path || activePath.startsWith(`${node.path}/`);
+}
+---
+
+<ul class="menu menu-sm w-full gap-0.5 p-0">
+  {nodes.map((node) => (
+    <li>
+      {node.children.length > 0 ? (
+        <details open={isOnActiveBranch(node)}>
+          <summary class:list={[activePath === node.path && 'active font-semibold']}>
+            <a href={categoryUrl(node.path)} class="flex-1">{node.name}</a>
+            <span class="badge badge-ghost badge-xs">{node.postCount}</span>
+          </summary>
+          <Astro.self nodes={node.children} activePath={activePath} />
+        </details>
+      ) : (
+        <a
+          href={categoryUrl(node.path)}
+          class:list={[activePath === node.path && 'active font-semibold']}
+          aria-current={activePath === node.path ? 'page' : undefined}
+        >
+          <span class="flex-1">{node.name}</span>
+          <span class="badge badge-ghost badge-xs">{node.postCount}</span>
+        </a>
+      )}
+    </li>
+  ))}
+</ul>

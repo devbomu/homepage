@@ -1,0 +1,121 @@
+/*
+ * 전역 스타일.
+ *
+ * 디자인은 Frosti (https://github.com/EveSunMaple/Frosti, MIT) 의 결을 따른다.
+ * daisyUI 테마(winter / dracula) + Tailwind Typography 조합이 그 룩의 핵심이다.
+ * Frosti 는 Tailwind 3 의 JS 설정을 쓰지만 여기서는 Tailwind 4 의 CSS 우선 설정을 쓴다.
+ */
+@import 'tailwindcss';
+
+@plugin "@tailwindcss/typography";
+@plugin "daisyui" {
+  themes:
+    winter --default,
+    dracula --prefersdark;
+}
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+    /* 헤더가 고정이라 앵커로 점프할 때 제목이 가려지는 것을 막는다. */
+    scroll-padding-top: 5rem;
+    /* 한글 가독성: 시스템 한글 폰트를 우선 잡는다. */
+    font-family:
+      'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
+      'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    word-break: keep-all; /* 한국어는 어절 단위로 줄바꿈해야 읽기 편하다 */
+    overflow-wrap: break-word;
+  }
+
+  body {
+    @apply bg-base-200 text-base-content min-h-screen;
+  }
+
+  /* 키보드 사용자에게만 포커스 링을 보여준다. */
+  :focus-visible {
+    @apply outline-primary outline-2 outline-offset-2;
+  }
+
+  code {
+    font-size: 0.875em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer components {
+  /* 스크롤바를 숨기되 스크롤은 살린다 (가로 스크롤 탭 등). */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  /* 카드가 Frosti 룩의 중심이다. 살짝 떠오르는 호버가 특징. */
+  .frost-card {
+    @apply bg-base-100 rounded-2xl shadow-sm transition-all duration-300;
+    @apply hover:-translate-y-0.5 hover:shadow-md;
+  }
+
+  .content-width {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+  }
+}
+
+/*
+ * 본문 타이포그래피.
+ *
+ * API 가 마크다운을 렌더해 넘긴 HTML 을 그대로 꽂으므로,
+ * Typography 플러그인의 prose 클래스로 스타일을 입힌다.
+ */
+.prose {
+  :where(h2, h3, h4):hover .heading-anchor {
+    @apply opacity-100;
+  }
+
+  .heading-anchor {
+    @apply text-primary ml-2 opacity-0 no-underline transition-opacity;
+  }
+
+  pre {
+    @apply bg-neutral text-neutral-content rounded-xl;
+  }
+
+  /* 인라인 코드의 기본 백틱 장식을 걷어낸다. */
+  :not(pre) > code {
+    @apply bg-base-200 text-base-content rounded px-1.5 py-0.5 font-normal;
+    &::before,
+    &::after {
+      content: none;
+    }
+  }
+
+  blockquote {
+    @apply border-primary bg-base-200/50 rounded-r-lg py-1 not-italic;
+    p:first-of-type::before,
+    p:last-of-type::after {
+      content: none;
+    }
+  }
+
+  table {
+    @apply block overflow-x-auto md:table;
+  }
+
+  img {
+    @apply rounded-xl;
+  }
+}

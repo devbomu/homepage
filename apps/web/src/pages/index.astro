@@ -1,0 +1,76 @@
+---
+import PostCard from '@components/PostCard.astro';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { api, type PostSummary, type Project } from '@lib/api';
+
+let pinned: PostSummary[] = [];
+let recent: PostSummary[] = [];
+let projects: Project[] = [];
+
+try {
+  const [pinnedResult, recentResult, projectsResult] = await Promise.all([
+    api.posts.pinned(),
+    api.posts.list({ limit: 6 }),
+    api.projects.list(),
+  ]);
+  pinned = pinnedResult.data ?? [];
+  recent = recentResult.data ?? [];
+  projects = (projectsResult.data ?? []).filter((p) => p.isFeatured).slice(0, 3);
+} catch (error) {
+  console.error('첫 화면 데이터를 불러오지 못했습니다', error);
+}
+
+// 고정한 글이 아래 최신 목록에 또 나오지 않게 한다.
+const pinnedSlugs = new Set(pinned.map((post) => post.slug));
+const recentWithoutPinned = recent.filter((post) => !pinnedSlugs.has(post.slug));
+---
+
+<BaseLayout cacheSeconds={60}>
+  {pinned.length > 0 && (
+    <section class="mb-10" aria-labelledby="pinned-heading">
+      <h2 id="pinned-heading" class="mb-4 text-lg font-bold">고정한 글</h2>
+      <div class="grid gap-5 sm:grid-cols-2">
+        {pinned.map((post) => <PostCard post={post} />)}
+      </div>
+    </section>
+  )}
+
+  <section aria-labelledby="recent-heading">
+    <div class="mb-4 flex items-baseline justify-between">
+      <h2 id="recent-heading" class="text-lg font-bold">최근 글</h2>
+      <a href="/blog" class="link link-hover text-primary text-sm">전체 보기 →</a>
+    </div>
+
+    {recentWithoutPinned.length === 0 ? (
+      <p class="text-base-content/60 py-12 text-center text-sm">아직 발행된 글이 없습니다.</p>
+    ) : (
+      <div class="grid gap-5 sm:grid-cols-2">
+        {recentWithoutPinned.map((post) => <PostCard post={post} />)}
+      </div>
+    )}
+  </section>
+
+  {projects.length > 0 && (
+    <section class="mt-12" aria-labelledby="projects-heading">
+      <div class="mb-4 flex items-baseline justify-between">
+        <h2 id="projects-heading" class="text-lg font-bold">프로젝트</h2>
+        <a href="/projects" class="link link-hover text-primary text-sm">전체 보기 →</a>
+      </div>
+      <div class="grid gap-5 sm:grid-cols-3">
+        {projects.map((project) => (
+          <a href={`/projects#${project.slug}`} class="frost-card block p-5">
+            <h3 class="font-semibold">{project.title}</h3>
+            {project.summary && (
+              <p class="text-base-content/70 mt-2 line-clamp-2 text-sm">{project.summary}</p>
+            )}
+            <div class="mt-3 flex flex-wrap gap-1">
+              {project.techStack.slice(0, 4).map((tech) => (
+                <span class="badge badge-ghost badge-sm">{tech}</span>
+              ))}
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
+  )}
+</BaseLayout>

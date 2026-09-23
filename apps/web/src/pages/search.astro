@@ -1,0 +1,59 @@
+---
+import PostCard from '@components/PostCard.astro';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { api, type PostSummary } from '@lib/api';
+
+const query = (Astro.url.searchParams.get('q') ?? '').trim();
+
+let results: PostSummary[] = [];
+let failed = false;
+
+if (query) {
+  try {
+    results = (await api.posts.search(query)).data ?? [];
+  } catch (error) {
+    console.error('검색에 실패했습니다', error);
+    failed = true;
+  }
+}
+---
+
+<!-- 검색 결과는 질의마다 다르므로 엣지에 캐시하지 않는다. -->
+<BaseLayout title={query ? `"${query}" 검색` : '검색'} noindex cacheSeconds={0}>
+  <h1 class="mb-6 text-2xl font-bold">검색</h1>
+
+  <form method="get" action="/search" class="mb-8 flex gap-2" role="search">
+    <input
+      type="search"
+      name="q"
+      value={query}
+      placeholder="검색어를 입력하세요"
+      class="input input-bordered flex-1"
+      autofocus
+      aria-label="검색어"
+    />
+    <button type="submit" class="btn btn-primary">검색</button>
+  </form>
+
+  {query && (
+    <>
+      {failed ? (
+        <p class="text-error py-8 text-center text-sm">검색에 실패했습니다. 잠시 후 다시 시도해 주세요.</p>
+      ) : results.length === 0 ? (
+        <div class="py-12 text-center">
+          <p class="text-base-content/60 text-sm">"{query}" 에 대한 결과가 없습니다.</p>
+          <p class="text-base-content/40 mt-2 text-xs">
+            두 글자 이하로는 제목과 요약에서만 찾습니다. 좀 더 긴 검색어를 써보세요.
+          </p>
+        </div>
+      ) : (
+        <>
+          <p class="text-base-content/60 mb-4 text-sm">{results.length}개의 결과</p>
+          <div class="grid gap-5 sm:grid-cols-2">
+            {results.map((post) => <PostCard post={post} />)}
+          </div>
+        </>
+      )}
+    </>
+  )}
+</BaseLayout>

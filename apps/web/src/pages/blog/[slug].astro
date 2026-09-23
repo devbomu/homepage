@@ -1,0 +1,154 @@
+---
+import Breadcrumb from '@components/Breadcrumb.astro';
+import Comments from '@components/Comments.astro';
+import LikeButton from '@components/LikeButton.astro';
+import PostCard from '@components/PostCard.astro';
+import TableOfContents from '@components/TableOfContents.astro';
+import BaseLayout from '@layouts/BaseLayout.astro';
+import { api, type CommentNode } from '@lib/api';
+import { categoryUrl, formatCount, formatDate, postUrl, tagUrl, toIso } from '@lib/format';
+import { extractToc } from '@lib/toc';
+
+const { slug } = Astro.params;
+
+const post = slug ? await api.posts.get(slug) : null;
+if (!post) return Astro.rewrite('/404');
+
+let comments: CommentNode[] = [];
+let allowComments = post.allowComments;
+try {
+  const result = await api.posts.comments(post.slug);
+  comments = result.data.comments ?? [];
+  allowComments = result.data.allowComments;
+} catch (error) {
+  console.error('댓글을 불러오지 못했습니다', error);
+}
+
+// 제목에 앵커 id 를 심고 목차를 뽑는다. 서버에서 한 번만 한다.
+const { html, toc } = extractToc(post.contentHtml ?? '');
+---
+
+<BaseLayout
+  title={post.metaTitle ?? post.title}
+  description={post.metaDescription ?? post.summary ?? undefined}
+  ogImage={post.ogImageUrl ?? post.coverImageUrl}
+  ogType="article"
+  publishedAt={post.publishedAt}
+  cacheSeconds={60}
+>
+  <div class="grid gap-8 lg:grid-cols-[1fr_15rem]">
+    <article class="min-w-0">
+      <Breadcrumb items={post.breadcrumb} />
+
+      <header class="mt-4 mb-8">
+        <h1 class="text-3xl leading-tight font-bold sm:text-4xl">{post.title}</h1>
+
+        <div class="text-base-content/60 mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <time datetime={toIso(post.publishedAt)}>{formatDate(post.publishedAt)}</time>
+          <span aria-hidden="true">·</span>
+          <span>{post.readingMinutes}분 읽기</span>
+          <span aria-hidden="true">·</span>
+          <span>조회 {formatCount(post.viewCount)}</span>
+          {post.category && (
+            <>
+              <span aria-hidden="true">·</span>
+              <a href={categoryUrl(post.category.path)} class="link link-hover text-primary">
+                {post.category.name}
+              </a>
+            </>
+          )}
+        </div>
+
+        {post.series && (
+          <p class="bg-base-100 mt-4 rounded-lg p-3 text-sm">
+            <span class="font-semibold">시리즈</span> · {post.series.title}
+            {post.series.order != null && ` — ${post.series.order}편`}
+          </p>
+        )}
+
+        {post.coverImageUrl && (
+          <img
+            src={post.coverImageUrl}
+            alt=""
+            class="mt-6 aspect-[16/9] w-full rounded-2xl object-cover"
+            loading="eager"
+            fetchpriority="high"
+          />
+        )}
+      </header>
+
+      <!--
+        API 가 마크다운을 렌더해 넘긴 HTML 이다.
+        원시 HTML 은 서버에서 이스케이프되고 링크 스킴도 검사를 거친다
+        (apps/api/src/lib/markdown.ts 참고).
+      -->
+      <div class="prose prose-lg max-w-none" set:html={html} />
+
+      <footer class="mt-10 space-y-6">
+        {post.tags.length > 0 && (
+          <div class="flex flex-wrap gap-2">
+            {post.tags.map((tag) => (
+              <a href={tagUrl(tag.slug)} class="badge badge-outline hover:badge-primary">
+                #{tag.name}
+              </a>
+            ))}
+          </div>
+        )}
+
+        <div class="flex justify-center py-4">
+          <LikeButton slug={post.slug} initialCount={post.likeCount} />
+        </div>
+
+        <nav class="grid gap-3 sm:grid-cols-2" aria-label="이전 다음 글">
+          {post.previous ? (
+            <a href={postUrl(post.previous.slug)} class="frost-card p-4">
+              <span class="text-base-content/50 text-xs">이전 글</span>
+              <p class="mt-1 line-clamp-2 text-sm font-medium">{post.previous.title}</p>
+            </a>
+          ) : (
+            <div></div>
+          )}
+          {post.next && (
+            <a href={postUrl(post.next.slug)} class="frost-card p-4 sm:text-right">
+              <span class="text-base-content/50 text-xs">다음 글</span>
+              <p class="mt-1 line-clamp-2 text-sm font-medium">{post.next.title}</p>
+            </a>
+          )}
+        </nav>
+      </footer>
+
+      {post.related.length > 0 && (
+        <section class="mt-12" aria-labelledby="related-heading">
+          <h2 id="related-heading" class="mb-4 text-lg font-bold">관련 글</h2>
+          <div class="grid gap-5 sm:grid-cols-2">
+            {post.related.map((related) => <PostCard post={related} />)}
+          </div>
+        </section>
+      )}
+
+      <Comments
+        slug={post.slug}
+        allowComments={allowComments}
+        comments={comments}
+        commentCount={post.commentCount}
+      />
+    </article>
+
+    <aside class="order-first lg:order-last">
+      <TableOfContents entries={toc} />
+    </aside>
+  </div>
+</BaseLayout>
+
+<script>
+  // 조회수는 화면이 그려진 뒤에 비동기로 올린다. 렌더를 막지 않는다.
+  // 같은 방문자의 연타는 API 쪽 레이트리밋이 걸러낸다.
+  const slug = window.location.pathname.split('/').pop();
+  if (slug) {
+    fetch(`${import.meta.env.PUBLIC_API_URL}/v1/posts/${slug}/view`, { method: 'POST' }).catch(
+      () => {
+        /* 조회수 집계 실패로 사용자에게 보여줄 것은 없다 */
+      },
+    );
+  }
+</script>

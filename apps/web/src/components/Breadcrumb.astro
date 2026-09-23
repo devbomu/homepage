@@ -1,0 +1,26 @@
+---
+import { categoryUrl } from '@lib/format';
+
+interface Props {
+  items: { slug: string; name: string; path: string }[];
+}
+
+const { items } = Astro.props;
+---
+
+{items.length > 0 && (
+  <nav class="breadcrumbs text-sm" aria-label="현재 위치">
+    <ul>
+      <li><a href="/blog" class="link link-hover">글</a></li>
+      {items.map((item, index) => (
+        <li>
+          {index === items.length - 1 ? (
+            <span aria-current="page">{item.name}</span>
+          ) : (
+            <a href={categoryUrl(item.path)} class="link link-hover">{item.name}</a>
+          )}
+        </li>
+      ))}
+    </ul>
+  </nav>
+)}

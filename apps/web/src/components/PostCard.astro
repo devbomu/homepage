@@ -1,0 +1,71 @@
+---
+import type { PostSummary } from '@lib/api';
+import { categoryUrl, formatCount, formatDate, postUrl, tagUrl, toIso } from '@lib/format';
+
+interface Props {
+  post: PostSummary;
+  /** 목록 첫 글처럼 크게 보여줄 때. */
+  featured?: boolean;
+}
+
+const { post, featured = false } = Astro.props;
+---
+
+<article class:list={['frost-card overflow-hidden', featured && 'sm:col-span-2']}>
+  {post.coverImageUrl && (
+    <a href={postUrl(post.slug)} tabindex="-1" aria-hidden="true">
+      <img
+        src={post.coverImageUrl}
+        alt=""
+        class="aspect-[16/9] w-full object-cover"
+        loading="lazy"
+        decoding="async"
+      />
+    </a>
+  )}
+
+  <div class="flex flex-col gap-3 p-5 sm:p-6">
+    <div class="text-base-content/60 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+      {post.isPinned && <span class="badge badge-primary badge-sm">고정</span>}
+      {post.category && (
+        <a href={categoryUrl(post.category.path)} class="link link-hover text-primary font-medium">
+          {post.category.name}
+        </a>
+      )}
+      <time datetime={toIso(post.publishedAt)}>{formatDate(post.publishedAt)}</time>
+      <span aria-hidden="true">·</span>
+      <span>{post.readingMinutes}분</span>
+    </div>
+
+    <h2 class:list={['font-bold leading-snug', featured ? 'text-2xl' : 'text-lg']}>
+      <a href={postUrl(post.slug)} class="link link-hover">{post.title}</a>
+    </h2>
+
+    {post.summary && (
+      <p class="text-base-content/70 line-clamp-3 text-sm leading-relaxed">{post.summary}</p>
+    )}
+
+    {post.series && (
+      <p class="text-base-content/60 text-xs">
+        시리즈 · {post.series.title}
+        {post.series.order != null && ` ${post.series.order}편`}
+      </p>
+    )}
+
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap gap-1.5">
+        {post.tags.map((tag) => (
+          <a href={tagUrl(tag.slug)} class="badge badge-ghost badge-sm hover:badge-primary">
+            #{tag.name}
+          </a>
+        ))}
+      </div>
+
+      <div class="text-base-content/50 flex shrink-0 items-center gap-3 text-xs">
+        <span title="조회">👁 {formatCount(post.viewCount)}</span>
+        <span title="좋아요">♥ {formatCount(post.likeCount)}</span>
+        <span title="댓글">💬 {formatCount(post.commentCount)}</span>
+      </div>
+    </div>
+  </div>
+</article>

@@ -1,0 +1,91 @@
+---
+interface Props {
+  siteTitle: string;
+  navItems: { slug: string; label: string }[];
+}
+
+const { siteTitle, navItems } = Astro.props;
+const current = Astro.url.pathname;
+
+const links = [
+  { href: '/blog', label: '글' },
+  { href: '/categories', label: '카테고리' },
+  { href: '/tags', label: '태그' },
+  { href: '/projects', label: '프로젝트' },
+  ...navItems.map((item) => ({ href: `/${item.slug}`, label: item.label })),
+];
+
+const isActive = (href: string) => current === href || current.startsWith(`${href}/`);
+---
+
+<header class="bg-base-100/80 sticky top-0 z-40 shadow-sm backdrop-blur">
+  <nav class="content-width navbar min-h-14 px-0" aria-label="주요">
+    <div class="navbar-start">
+      <div class="dropdown">
+        <button tabindex="0" class="btn btn-ghost btn-sm lg:hidden" aria-label="메뉴 열기">
+          <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+          </svg>
+        </button>
+        <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-50 mt-2 w-52 p-2 shadow">
+          {links.map((link) => (
+            <li>
+              <a href={link.href} aria-current={isActive(link.href) ? 'page' : undefined}>
+                {link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <a href="/" class="btn btn-ghost px-2 text-lg font-bold">{siteTitle}</a>
+    </div>
+
+    <div class="navbar-center hidden lg:flex">
+      <ul class="menu menu-horizontal gap-1 px-1">
+        {links.map((link) => (
+          <li>
+            <a
+              href={link.href}
+              class={isActive(link.href) ? 'active font-semibold' : ''}
+              aria-current={isActive(link.href) ? 'page' : undefined}
+            >
+              {link.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <div class="navbar-end gap-1">
+      <a href="/search" class="btn btn-ghost btn-sm btn-circle" aria-label="검색">
+        <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35M17 11a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z"></path>
+        </svg>
+      </a>
+
+      <button id="theme-toggle" class="btn btn-ghost btn-sm btn-circle" aria-label="테마 전환">
+        <svg class="size-5 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+        </svg>
+        <svg class="hidden size-5 dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="4" stroke-width="2"></circle>
+          <path stroke-linecap="round" stroke-width="2" d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+        </svg>
+      </button>
+    </div>
+  </nav>
+</header>
+
+<script>
+  const toggle = document.getElementById('theme-toggle');
+  toggle?.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dracula' ? 'winter' : 'dracula';
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem('theme', next);
+    } catch {
+      /* 저장이 막혀도 이번 세션 동안은 바뀐 테마로 동작한다 */
+    }
+  });
+</script>
