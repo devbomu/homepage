@@ -14,7 +14,9 @@ const { slug } = Astro.params;
 const page = slug ? await api.pages.get(slug) : null;
 if (!page) return Astro.rewrite('/404');
 
-const { html, toc } = extractToc(page.contentHtml ?? '');
+// 단독 페이지는 사이드바가 없어 목차를 띄우지 않는다.
+// 제목의 앵커 id 는 그대로 심어 URL 로 특정 절을 가리킬 수 있게 한다.
+const { html } = extractToc(page.contentHtml ?? '');
 ---
 
 <BaseLayout title={page.title} description={page.metaDescription ?? undefined} cacheSeconds={300}>

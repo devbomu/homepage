@@ -2,16 +2,13 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+# pnpm 은 기본적으로 의존성의 postinstall 스크립트를 실행하지 않는다.
+# 아래 패키지들은 설치 시 네이티브 바이너리를 받아와야 하므로 명시적으로 허용한다.
+#   workerd          — wrangler 의 로컬 Workers 런타임
+#   esbuild          — wrangler / vite 번들러
+#   @parcel/watcher  — astro 의 파일 감시
+# 여기 없는 패키지의 빌드가 필요해지면 설치가 실패하면서 이름을 알려준다.
 allowBuilds:
-  '@parcel/watcher': set this to true or false
-  esbuild: set this to true or false
-  workerd: set this to true or false
-
-# pnpm 10+ 는 기본적으로 의존성의 postinstall 스크립트를 실행하지 않는다.
-# wrangler 의 로컬 런타임(workerd)과 번들러(esbuild)는 바이너리를 받아와야 하므로
-# 이것들만 명시적으로 허용한다.
-onlyBuiltDependencies:
-  - esbuild
-  - workerd
-  - sharp
-  - '@tailwindcss/oxide'
+  '@parcel/watcher': true
+  esbuild: true
+  workerd: true

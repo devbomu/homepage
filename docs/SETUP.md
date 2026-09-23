@@ -44,10 +44,10 @@ pnpm --filter @namsu/api exec wrangler r2 bucket create namsu-media
 Zero Trust 대시보드 → Access → Applications → **Self-hosted** 로 앱을 하나 만든다.
 **하나의 앱에 도메인 두 개를 모두 넣는다.**
 
-| 도메인 | 경로 |
-|---|---|
-| `admin.namsu.kim` | (전체) |
-| `api.namsu.kim` | `/v1/admin` |
+| 도메인            | 경로        |
+| ----------------- | ----------- |
+| `admin.namsu.kim` | (전체)      |
+| `api.namsu.kim`   | `/v1/admin` |
 
 두 번째가 빠지면 관리자 API 가 인터넷에 열린 채로 남는다.
 `api.namsu.kim` 전체에 걸면 공개 API 까지 막히니 경로를 반드시 지정할 것.
@@ -101,10 +101,10 @@ pnpm exec wrangler secret put ADMIN_EMAILS   # 쉼표로 여러 개 가능
 
 저장소 Settings → Secrets and variables → Actions.
 
-| 이름 | 어디서 |
-|---|---|
-| `CLOUDFLARE_API_TOKEN` | 대시보드 → My Profile → API Tokens → **Edit Cloudflare Workers** 템플릿 |
-| `CLOUDFLARE_ACCOUNT_ID` | Workers 개요 페이지 우측 |
+| 이름                    | 어디서                                                                  |
+| ----------------------- | ----------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | 대시보드 → My Profile → API Tokens → **Edit Cloudflare Workers** 템플릿 |
+| `CLOUDFLARE_ACCOUNT_ID` | Workers 개요 페이지 우측                                                |
 
 토큰 권한은 Workers Scripts 편집, D1 편집, R2 편집이면 충분하다.
 Zone 권한까지 줄 필요는 없다.
@@ -131,19 +131,19 @@ pnpm --filter @namsu/admin deploy
 
 ## 권장 설정 (선택)
 
-| 기능 | 왜 |
-|---|---|
-| Web Analytics | 쿠키 없는 방문 통계. GA 와 달리 개인정보 고지 부담이 없다 |
-| Cache Rules | `/_astro/*` 는 이미 불변 캐시가 걸려 있다. HTML 캐시는 각 페이지가 직접 지정한다 |
-| Email Routing | `hi@namsu.kim` → 개인 메일로 포워딩. 메일서버 불필요 |
-| Bot Fight Mode | Turnstile 앞단에서 한 번 더 거른다 |
+| 기능           | 왜                                                                               |
+| -------------- | -------------------------------------------------------------------------------- |
+| Web Analytics  | 쿠키 없는 방문 통계. GA 와 달리 개인정보 고지 부담이 없다                        |
+| Cache Rules    | `/_astro/*` 는 이미 불변 캐시가 걸려 있다. HTML 캐시는 각 페이지가 직접 지정한다 |
+| Email Routing  | `hi@namsu.kim` → 개인 메일로 포워딩. 메일서버 불필요                             |
+| Bot Fight Mode | Turnstile 앞단에서 한 번 더 거른다                                               |
 
 ## 문제가 생기면
 
-| 증상 | 확인할 것 |
-|---|---|
-| API 가 503 | 5번 시크릿 중 빠진 것이 있다. `wrangler tail` 로 `missing required configuration` 확인 |
-| 관리자에서 401/403 | Access 앱에 `api.namsu.kim/v1/admin` 도메인이 빠졌거나 `CF_ACCESS_AUD` 가 다르다 |
-| 댓글이 항상 거부됨 | `TURNSTILE_SECRET_KEY` 와 `PUBLIC_TURNSTILE_SITE_KEY` 가 같은 위젯의 쌍인지 확인 |
-| 글을 고쳐도 사이트가 그대로 | 엣지 캐시다. 최대 60초. 급하면 대시보드에서 캐시 퍼지 |
-| 이미지가 깨짐 | R2 버킷의 커스텀 도메인과 `MEDIA_PUBLIC_BASE_URL` 이 다르다 |
+| 증상                        | 확인할 것                                                                              |
+| --------------------------- | -------------------------------------------------------------------------------------- |
+| API 가 503                  | 5번 시크릿 중 빠진 것이 있다. `wrangler tail` 로 `missing required configuration` 확인 |
+| 관리자에서 401/403          | Access 앱에 `api.namsu.kim/v1/admin` 도메인이 빠졌거나 `CF_ACCESS_AUD` 가 다르다       |
+| 댓글이 항상 거부됨          | `TURNSTILE_SECRET_KEY` 와 `PUBLIC_TURNSTILE_SITE_KEY` 가 같은 위젯의 쌍인지 확인       |
+| 글을 고쳐도 사이트가 그대로 | 엣지 캐시다. 최대 60초. 급하면 대시보드에서 캐시 퍼지                                  |
+| 이미지가 깨짐               | R2 버킷의 커스텀 도메인과 `MEDIA_PUBLIC_BASE_URL` 이 다르다                            |
