@@ -84,7 +84,7 @@ export default function Comments() {
                   {comment.parentId && <span className="badge badge-ghost badge-sm">답글</span>}
                 </div>
 
-                <p className="whitespace-pre-wrap text-sm">{comment.body}</p>
+                <p className="text-sm whitespace-pre-wrap">{comment.body}</p>
 
                 <div className="text-base-content/50 flex flex-wrap gap-x-4 gap-y-1 text-xs">
                   <a
