@@ -41,8 +41,19 @@ export async function sendMail(env: Bindings, mail: Mail): Promise<boolean> {
     });
 
     if (!response.ok) {
-      // 수신자 주소는 로그에 남기지 않는다.
-      console.error('mail: 발송 실패', response.status, await response.text().catch(() => ''));
+      /*
+       * 수신자 주소는 로그에 남기지 않는다.
+       *
+       * 예전에는 응답 본문을 통째로 찍었는데, Resend 의 검증 오류 메시지에는
+       * 문제가 된 주소가 그대로 들어온다 ("Invalid `to` field: ..."). 주석은
+       * 남기지 않는다고 해놓고 실제로는 남기고 있었다.
+       * 지금은 오류 종류만 남긴다. 원인 파악에는 이것으로 충분하다.
+       */
+      const detail = (await response.json().catch(() => null)) as { name?: unknown } | null;
+      console.error('mail: 발송 실패', {
+        status: response.status,
+        kind: typeof detail?.name === 'string' ? detail.name : 'unknown',
+      });
       return false;
     }
     return true;

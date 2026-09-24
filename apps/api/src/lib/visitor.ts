@@ -29,9 +29,15 @@ export async function computeVisitorHash(
 /**
  * 클라이언트 IP.
  *
- * 이 Worker 는 Cloudflare 뒤에만 존재하므로 CF-Connecting-IP 를 신뢰한다.
+ * 이 Worker 는 Cloudflare 뒤에만 존재하므로(wrangler.jsonc 의 workers_dev 는 false,
+ * 커스텀 도메인 라우트만 있다) CF-Connecting-IP 를 신뢰한다.
  * Cloudflare 가 이 헤더를 항상 덮어쓰기 때문에 위조해서 들어올 방법이 없다.
+ *
+ * X-Real-IP 폴백이 있었는데 없앴다. 그 헤더는 클라이언트가 마음대로 보낼 수 있어서,
+ * CF-Connecting-IP 가 없는 상황이 오면 곧바로 레이트리밋과 좋아요 중복차단을
+ * 우회하는 통로가 된다. 지금은 도달할 수 없는 경로지만, 믿을 수 없는 값을
+ * 폴백으로 두는 것 자체가 나중에 되살아날 함정이다.
  */
 export function clientIp(headers: Headers): string {
-  return headers.get('CF-Connecting-IP') ?? headers.get('X-Real-IP') ?? '0.0.0.0';
+  return headers.get('CF-Connecting-IP') ?? '0.0.0.0';
 }
