@@ -13,6 +13,7 @@ import {
   type PostStatus,
   type ProtectedListing,
 } from '../lib/types';
+import MarkdownEditor from '../components/MarkdownEditor';
 import { Card, ErrorNotice, Field, Loading, PageHeader } from '../components/ui';
 
 interface Draft {
@@ -92,7 +93,6 @@ export default function PostEditor() {
   const queryClient = useQueryClient();
 
   const [draft, setDraft] = useState<Draft>(EMPTY);
-  const [showPreview, setShowPreview] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
 
   const existing = useQuery({
@@ -183,13 +183,6 @@ export default function PostEditor() {
     },
   });
 
-  // 미리보기는 저장하지 않고 서버에 렌더만 맡긴다.
-  // 공개 화면과 같은 렌더러를 쓰므로 결과가 어긋나지 않는다.
-  const preview = useMutation({
-    mutationFn: () =>
-      adminApi.posts.preview(postId ?? 0, draft.content).then((r) => r.data.contentHtml),
-  });
-
   if (postId != null && existing.isLoading) return <Loading />;
 
   const update = <K extends keyof Draft>(key: K, value: Draft[K]) =>
@@ -257,45 +250,8 @@ export default function PostEditor() {
             </Field>
           </Card>
 
-          <Card className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">본문 (마크다운)</span>
-              <div className="flex items-center gap-2">
-                <span className="text-base-content/40 text-xs">
-                  {draft.content.length.toLocaleString('ko-KR')}자
-                </span>
-                <button
-                  className="btn btn-ghost btn-xs"
-                  onClick={() => {
-                    setShowPreview((v) => !v);
-                    if (!showPreview) preview.mutate();
-                  }}
-                >
-                  {showPreview ? '편집' : '미리보기'}
-                </button>
-              </div>
-            </div>
-
-            {showPreview ? (
-              preview.isPending ? (
-                <Loading />
-              ) : (
-                <div
-                  className="preview bg-base-200/40 min-h-[28rem] rounded-lg p-4"
-                  // 서버가 렌더한 HTML 이다. 원시 HTML 이스케이프와 URL 스킴 검사를 거친 결과라
-                  // 공개 화면에 나갈 것과 완전히 같다.
-                  dangerouslySetInnerHTML={{ __html: preview.data ?? '' }}
-                />
-              )
-            ) : (
-              <textarea
-                className="textarea textarea-bordered min-h-[28rem] w-full font-mono text-sm leading-relaxed"
-                value={draft.content}
-                onChange={(e) => update('content', e.target.value)}
-                placeholder="## 제목&#10;&#10;마크다운으로 작성합니다."
-                spellCheck={false}
-              />
-            )}
+          <Card>
+            <MarkdownEditor value={draft.content} onChange={(next) => update('content', next)} />
           </Card>
 
           <Card className="space-y-4">

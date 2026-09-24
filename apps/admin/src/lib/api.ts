@@ -71,11 +71,6 @@ export const adminApi = {
         ...json(body),
       }),
     remove: (id: number) => request<void>(`/v1/admin/posts/${id}`, { method: 'DELETE' }),
-    preview: (id: number, content: string) =>
-      request<{ contentHtml: string }>(`/v1/admin/posts/${id}/preview`, {
-        method: 'POST',
-        ...json({ content }),
-      }),
   },
 
   categories: {
@@ -125,6 +120,23 @@ export const adminApi = {
         ...json({ body }),
       }),
   },
+
+  guestbook: {
+    list: (params: { status?: string; cursor?: string } = {}) => {
+      const query = new URLSearchParams();
+      for (const [k, v] of Object.entries(params)) if (v) query.set(k, String(v));
+      return request<import('./types').GuestbookEntry[]>(`/v1/admin/guestbook?${query}`);
+    },
+    setStatus: (id: number, status: string) =>
+      request<unknown>(`/v1/admin/guestbook/${id}`, { method: 'PATCH', ...json({ status }) }),
+    remove: (id: number) => request<void>(`/v1/admin/guestbook/${id}`, { method: 'DELETE' }),
+    restore: (id: number) =>
+      request<{ id: number }>(`/v1/admin/guestbook/${id}/restore`, { method: 'POST' }),
+  },
+
+  /** 저장 전 마크다운을 렌더해 본다. 글·페이지·프로젝트가 같이 쓴다. */
+  preview: (content: string) =>
+    request<{ contentHtml: string }>('/v1/admin/preview', { method: 'POST', ...json({ content }) }),
 
   media: {
     list: () => request<import('./types').MediaItem[]>('/v1/admin/media'),

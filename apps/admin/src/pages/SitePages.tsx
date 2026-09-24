@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { adminApi } from '../lib/api';
 import { POST_STATUSES, POST_STATUS_LABEL, type PostStatus, type SitePage } from '../lib/types';
+import MarkdownEditor from '../components/MarkdownEditor';
 import { Card, EmptyState, ErrorNotice, Field, Loading, PageHeader } from '../components/ui';
 
 export default function SitePages() {
@@ -161,14 +162,7 @@ function PageForm({
         </Field>
       </div>
 
-      <Field label="본문 (마크다운)">
-        <textarea
-          className="textarea textarea-bordered min-h-64 w-full font-mono text-sm"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          spellCheck={false}
-        />
-      </Field>
+      <MarkdownEditor value={content} onChange={setContent} minHeight="min-h-64" />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="상태">

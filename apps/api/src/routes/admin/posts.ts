@@ -250,10 +250,3 @@ adminPosts.delete('/:id{[0-9]+}', async (c) => {
   await audit(db, c.get('identity'), 'post.delete', 'post', id);
   return noContent(c);
 });
-
-/** POST /v1/admin/posts/:id/preview — 저장하지 않고 렌더 결과만 본다. */
-adminPosts.post(
-  '/:id{[0-9]+}/preview',
-  zValidator('json', z.object({ content: z.string().max(200_000) })),
-  async (c) => ok(c, { contentHtml: renderMarkdown(c.req.valid('json').content) }),
-);

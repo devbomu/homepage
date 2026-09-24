@@ -1,10 +1,14 @@
+import { zValidator } from '@hono/zod-validator';
 import { Hono } from 'hono';
+import { z } from 'zod';
 
 import type { AppEnv } from '../../env';
+import { renderMarkdown } from '../../lib/markdown';
 import { ok } from '../../lib/response';
 import { requireAdmin } from '../../middleware/admin';
 import { adminComments } from './comments';
 import { adminContent } from './content';
+import { adminGuestbook } from './guestbook';
 import { adminMedia } from './media';
 import { adminPosts } from './posts';
 import { adminStats } from './stats';
@@ -27,8 +31,21 @@ adminRoutes.get('/me', (c) => {
   return ok(c, { email: identity.email, commonName: identity.commonName });
 });
 
+/**
+ * POST /v1/admin/preview — 저장하지 않고 마크다운 렌더 결과만 본다.
+ *
+ * 예전에는 /posts/:id/preview 로 글에 붙어 있었다. 아직 저장 전인 새 글이나
+ * 페이지·프로젝트에서는 쓸 수 없어서, id 없이 부르도록 옮겼다.
+ */
+adminRoutes.post(
+  '/preview',
+  zValidator('json', z.object({ content: z.string().max(200_000) })),
+  (c) => ok(c, { contentHtml: renderMarkdown(c.req.valid('json').content) }),
+);
+
 adminRoutes.route('/posts', adminPosts);
 adminRoutes.route('/comments', adminComments);
+adminRoutes.route('/guestbook', adminGuestbook);
 adminRoutes.route('/media', adminMedia);
 adminRoutes.route('/stats', adminStats);
 adminRoutes.route('/', adminTaxonomy);

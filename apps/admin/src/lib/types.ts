@@ -130,6 +130,16 @@ export interface ModerationComment {
   createdAt: number;
 }
 
+export interface GuestbookEntry {
+  id: number;
+  authorName: string;
+  authorEmail: string | null;
+  authorWebsite: string | null;
+  body: string;
+  status: CommentStatus;
+  createdAt: number;
+}
+
 export interface MediaItem {
   id: number;
   objectKey: string;

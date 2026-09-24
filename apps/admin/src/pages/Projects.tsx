@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { adminApi } from '../lib/api';
 import type { Project } from '../lib/types';
+import MarkdownEditor from '../components/MarkdownEditor';
 import { Card, EmptyState, ErrorNotice, Field, Loading, PageHeader } from '../components/ui';
 
 export default function Projects() {
@@ -189,14 +190,13 @@ function ProjectForm({
         />
       </Field>
 
-      <Field label="설명 (마크다운)">
-        <textarea
-          className="textarea textarea-bordered min-h-40 w-full font-mono text-sm"
-          value={form.description}
-          onChange={(e) => set('description', e.target.value)}
-          spellCheck={false}
-        />
-      </Field>
+      <MarkdownEditor
+        label="설명 (마크다운)"
+        value={form.description}
+        onChange={(next) => set('description', next)}
+        minHeight="min-h-40"
+        placeholder="프로젝트 설명을 마크다운으로 작성합니다."
+      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="저장소 주소">
