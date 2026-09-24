@@ -1,5 +1,6 @@
 ---
 import { formatRelative, toIso } from '@lib/format';
+import { safeLink } from '@lib/url';
 import type { CommentNode } from '@lib/api';
 
 interface Props {
@@ -46,9 +47,9 @@ const answered = comment.isSecret && comment.replies.some((reply) => reply.isOwn
     <>
       <div class="flex flex-wrap items-baseline gap-2">
         <span class="font-semibold">
-          {comment.authorWebsite ? (
+          {safeLink(comment.authorWebsite) ? (
             <a
-              href={comment.authorWebsite}
+              href={safeLink(comment.authorWebsite)}
               class="link link-hover"
               rel="nofollow noopener noreferrer"
               target="_blank"

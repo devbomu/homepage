@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AdminIdentity, Bindings } from '../src/env';
 import { isAllowedAdmin } from '../src/lib/access';
 import { hashPassword, issueUnlockToken, verifyUnlockToken } from '../src/lib/password';
+import { visitorUrl } from '../src/lib/url';
 
 /**
  * 보안 회귀 테스트.
@@ -92,5 +93,38 @@ describe('해제 토큰', () => {
     const { token } = await issueUnlockToken(SALT, 7, hash);
     const forged = `7.${past}.${token.split('.')[2]}`;
     expect(await verifyUnlockToken(SALT, 7, hash, forged)).toBeNull();
+  });
+});
+
+describe('visitorUrl', () => {
+  /*
+   * z.url() 은 new URL() 로 파싱만 해서 javascript: 를 "올바른 주소" 로 통과시킨다.
+   * 이 값이 공개 화면의 <a href> 로 들어가므로, 인증 없는 방문자가 남긴 문자열이
+   * 다른 방문자의 브라우저에서 실행될 수 있었다.
+   */
+  it('http/https 만 받는다', () => {
+    expect(visitorUrl.safeParse('https://example.com').success).toBe(true);
+    expect(visitorUrl.safeParse('http://example.com/a?b=1').success).toBe(true);
+  });
+
+  it('실행 가능한 스킴을 거부한다', () => {
+    for (const bad of [
+      'javascript:alert(1)',
+      'JaVaScRiPt:alert(1)',
+      'data:text/html,<script>alert(1)</script>',
+      'vbscript:msgbox(1)',
+    ]) {
+      expect(visitorUrl.safeParse(bad).success, bad).toBe(false);
+    }
+  });
+
+  it('mailto/tel 도 홈페이지 칸에는 받지 않는다', () => {
+    expect(visitorUrl.safeParse('mailto:a@b.com').success).toBe(false);
+    expect(visitorUrl.safeParse('tel:+8210').success).toBe(false);
+  });
+
+  it('주소가 아닌 값도 거부한다', () => {
+    expect(visitorUrl.safeParse('example.com').success).toBe(false);
+    expect(visitorUrl.safeParse('//evil.com').success).toBe(false);
   });
 });

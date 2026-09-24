@@ -1,4 +1,5 @@
 ---
+import { safeLink } from '@lib/url';
 import BaseLayout from '@layouts/BaseLayout.astro';
 import { api, type Project } from '@lib/api';
 
@@ -64,9 +65,9 @@ const period = (project: Project) => {
             )}
 
             <div class="flex gap-2 pt-1">
-              {project.repoUrl && (
+              {safeLink(project.repoUrl) && (
                 <a
-                  href={project.repoUrl}
+                  href={safeLink(project.repoUrl)}
                   class="btn btn-outline btn-xs"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -74,9 +75,9 @@ const period = (project: Project) => {
                   저장소
                 </a>
               )}
-              {project.demoUrl && (
+              {safeLink(project.demoUrl) && (
                 <a
-                  href={project.demoUrl}
+                  href={safeLink(project.demoUrl)}
                   class="btn btn-primary btn-xs"
                   target="_blank"
                   rel="noopener noreferrer"

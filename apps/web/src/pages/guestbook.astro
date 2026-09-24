@@ -8,6 +8,7 @@
 import BaseLayout from '@layouts/BaseLayout.astro';
 import { api, type GuestbookEntry } from '@lib/api';
 import { formatRelative, toIso } from '@lib/format';
+import { safeLink } from '@lib/url';
 
 let entries: GuestbookEntry[] = [];
 let total = 0;
@@ -128,9 +129,9 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
         <li class="frost-card p-4">
           <div class="flex flex-wrap items-baseline gap-2">
             <span class="font-semibold">
-              {entry.authorWebsite ? (
+              {safeLink(entry.authorWebsite) ? (
                 <a
-                  href={entry.authorWebsite}
+                  href={safeLink(entry.authorWebsite)}
                   class="link link-hover"
                   rel="nofollow noopener noreferrer"
                   target="_blank"
@@ -162,6 +163,8 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
 )}
 
 <script>
+  import { safeLink } from '@lib/url';
+
   const form = document.querySelector<HTMLFormElement>('[data-guestbook-form]');
 
   if (form) {
@@ -194,9 +197,10 @@ const turnstileKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY;
       const head = el('div', 'flex flex-wrap items-baseline gap-2');
       const name = el('span', 'font-semibold');
 
-      if (data.authorWebsite) {
+      const website = safeLink(data.authorWebsite);
+      if (website) {
         const link = el('a', 'link link-hover', data.authorName) as HTMLAnchorElement;
-        link.href = data.authorWebsite;
+        link.href = website;
         link.rel = 'nofollow noopener noreferrer';
         link.target = '_blank';
         name.append(link);

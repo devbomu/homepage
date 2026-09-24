@@ -1,4 +1,5 @@
 ---
+import { safeLink } from '@lib/url';
 interface Props {
   siteTitle: string;
   author: string;
@@ -19,16 +20,19 @@ const year = new Date().getFullYear();
     </div>
 
     <div class="flex items-center gap-4 text-sm">
-      {Object.entries(social).map(([name, url]) => (
-        <a
-          href={url}
-          class="link link-hover capitalize"
-          rel="me noopener noreferrer"
-          target="_blank"
-        >
-          {name}
-        </a>
-      ))}
+      {Object.entries(social)
+        .map(([name, url]) => [name, safeLink(url)] as const)
+        .filter(([, url]) => url)
+        .map(([name, url]) => (
+          <a
+            href={url}
+            class="link link-hover capitalize"
+            rel="me noopener noreferrer"
+            target="_blank"
+          >
+            {name}
+          </a>
+        ))}
       <a href="/rss.xml" class="link link-hover">
         RSS
       </a>

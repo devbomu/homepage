@@ -20,6 +20,7 @@ import {
 } from '../../queries/comments';
 import { visiblePost } from '../../queries/visibility';
 import { getLikeState, recordView, toggleLike } from '../../queries/engagement';
+import { visitorUrl } from '../../lib/url';
 
 export const publicEngagement = new Hono<AppEnv>();
 
@@ -103,7 +104,7 @@ const createCommentSchema = z.object({
   authorName: z.string().trim().min(1, '이름을 입력해 주세요.').max(50),
   // 이메일은 선택이다. 답글 알림과 아바타에만 쓰고 공개 응답에는 넣지 않는다.
   authorEmail: z.string().trim().email('이메일 형식이 올바르지 않습니다.').max(200).nullish(),
-  authorWebsite: z.string().trim().url('주소 형식이 올바르지 않습니다.').max(500).nullish(),
+  authorWebsite: visitorUrl.nullish(),
   body: z.string().trim().min(1, '내용을 입력해 주세요.').max(5000),
   parentId: z.number().int().positive().nullish(),
   /**
