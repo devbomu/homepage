@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 
 import { api } from '@lib/api';
+import { collectSitemapSources } from '@lib/feeds';
 
 /**
  * 사이트맵.
@@ -11,15 +12,20 @@ import { api } from '@lib/api';
 export const GET: APIRoute = async ({ site }) => {
   const origin = site?.origin ?? 'https://www.namsu.kim';
 
-  // 페이지는 nav 가 아니라 feed 로 가져온다. nav 는 메뉴에 노출하는 것만
-  // 돌려주기 때문에, 메뉴에 없는 공개 페이지가 색인에서 통째로 빠졌다.
-  const [feed, categories, tags, sitePages, projects] = await Promise.all([
-    api.posts.feed().then((r) => r.data ?? []),
-    api.categories.tree().then((r) => r.data ?? []),
-    api.tags.list().then((r) => r.data ?? []),
-    api.pages.feed().then((r) => r.data ?? []),
-    api.projects.list().then((r) => r.data ?? []),
-  ]);
+  /*
+   * 페이지는 nav 가 아니라 feed 로 가져온다. nav 는 메뉴에 노출하는 것만
+   * 돌려주기 때문에, 메뉴에 없는 공개 페이지가 색인에서 통째로 빠졌다.
+   *
+   * 분류·태그·페이지·프로젝트가 잠깐 안 나오면 그것만 빼고 내보낸다.
+   * 글 목록이 실패하면 500 을 낸다 — 자세한 이유는 lib/feeds.ts 참고.
+   */
+  const {
+    posts: feed,
+    categories,
+    tags,
+    pages: sitePages,
+    projects,
+  } = await collectSitemapSources(api);
 
   const entries: { loc: string; lastmod?: string; priority: string }[] = [
     { loc: '/', priority: '1.0' },

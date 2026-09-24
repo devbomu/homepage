@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 
 import { api } from '@lib/api';
+import { collectRssSources } from '@lib/feeds';
 
 /** XML 에 넣을 수 없는 문자를 이스케이프한다. */
 function escapeXml(value: string): string {
@@ -15,12 +16,12 @@ function escapeXml(value: string): string {
 export const GET: APIRoute = async ({ site }) => {
   const origin = site?.origin ?? 'https://www.namsu.kim';
 
-  const [settingsResult, feedResult] = await Promise.all([api.site.settings(), api.posts.feed()]);
-  const settings = settingsResult.data ?? {};
-  const posts = (feedResult.data ?? []).slice(0, 50);
+  // 사이트 제목·소개가 잠깐 안 나오면 기본값으로 나간다. 글은 필수다.
+  const sources = await collectRssSources(api);
+  const posts = sources.posts.slice(0, 50);
 
-  const title = settings['site.title'] ?? 'namsu.kim';
-  const description = settings['site.description'] ?? '';
+  const title = (sources.settings['site.title'] as string | undefined) ?? 'namsu.kim';
+  const description = (sources.settings['site.description'] as string | undefined) ?? '';
 
   const items = posts
     .map((post) => {
