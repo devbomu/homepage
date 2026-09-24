@@ -17,7 +17,14 @@
     "binding": "ASSETS",
     "directory": "./dist/client",
     // SPA 라우팅: 없는 경로는 index.html 로 돌려보낸다.
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+
+    // 자산 요청도 워커를 거치게 한다.
+    // 기본값이면 자산 핸들러가 워커를 건너뛰고 바로 응답해서, worker/index.ts 가
+    // 붙이는 보안 헤더(CSP 등)가 HTML 과 JS/CSS 에 하나도 실리지 않는다.
+    // 요청마다 워커가 한 번 더 도는 비용이 있지만, Access 뒤에 있는 화면이고
+    // 페이지당 요청이 몇 개뿐이라 의미 있는 차이가 아니다.
+    "run_worker_first": true
   },
 
   "vars": {
