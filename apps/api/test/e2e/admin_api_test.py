@@ -106,6 +106,20 @@ check("본문이 그대로 남아 있다", "## 소개" in (d.get("content") or "
 check("렌더된 HTML 도 그대로", "<h2>소개</h2>" in (d.get("contentHtml") or ""))
 check("제목은 바뀌었다", d.get("title") == "제목만 바꿔 본다", repr(d.get("title")))
 
+print("\n=== 긴 본문 수정 (FTS 색인 동기화) ===")
+# 본문이 50자쯤을 넘으면 수정이 SQLITE_CORRUPT_VTAB 으로 실패했다.
+# 외부 콘텐츠 FTS5 의 'delete' 가 색인과 원본의 글자 단위 일치를 요구했기 때문이다.
+long_body = "가나다라마바사아자차" * 40
+s, b = call("PATCH", f"/v1/admin/posts/{post_id}", {"content": long_body})
+check("긴 본문으로 수정", s == 200, f"{s} {b}")
+s, b = call("GET", f"/v1/admin/posts/{post_id}")
+check("본문이 실제로 바뀐다", s == 200 and b["data"]["content"] == long_body, f"{s}")
+s, b = call("PATCH", f"/v1/admin/posts/{post_id}", {"content": long_body + " 뒤에 덧붙임"})
+check("한 번 더 수정해도 된다", s == 200, f"{s} {b}")
+s, b = call("GET", "/v1/posts/search?q=가나다라마")
+check("수정한 본문이 검색된다",
+      s == 200 and any(p["id"] == post_id for p in b["data"]), f"{s} {b}")
+
 print("\n=== 다중 뎁스 카테고리 이동 (자손 path 연쇄 갱신) ===")
 before = paths()
 check("이동 전 구조", before.get("infra") == ("dev/backend/infra", 2), str(before.get("infra")))

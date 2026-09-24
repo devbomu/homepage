@@ -43,6 +43,13 @@
       "when": 1790225139231,
       "tag": "0005_guestbook",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790240000000,
+      "tag": "0006_fts_own_content",
+      "breakpoints": true
     }
   ]
 }
