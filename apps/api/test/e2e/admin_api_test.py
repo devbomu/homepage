@@ -84,6 +84,17 @@ check("공개 API 에서 바로 조회됨", s == 200, str(s))
 s, b = call("GET", "/v1/posts/search?q=블로그")
 check("FTS 색인이 트리거로 갱신됨", s == 200 and any(p["slug"] == slug for p in b["data"]), str(s))
 
+print("\n=== 주소가 겹치면 번호를 붙인다 ===")
+# 예전에는 페이지·프로젝트가 중복 주소를 그대로 넣어 UNIQUE 제약에 걸렸고,
+# 화면에는 "요청을 처리하지 못했습니다" 만 나왔다.
+for kind, payload in (("pages", {"title": "겹치는 페이지", "slug": "dup-check", "content": "x"}),
+                      ("projects", {"title": "겹치는 프로젝트", "slug": "dup-check"})):
+    s1, b1 = call("POST", f"/v1/admin/{kind}", payload)
+    s2, b2 = call("POST", f"/v1/admin/{kind}", payload)
+    check(f"{kind}: 첫 번째는 그대로", s1 == 201 and b1["data"]["slug"] == "dup-check", f"{s1} {b1}")
+    check(f"{kind}: 두 번째는 -2 가 붙는다", s2 == 201 and b2["data"]["slug"] == "dup-check-2",
+          f"{s2} {b2}")
+
 print("\n=== 부분 수정이 다른 필드를 지우지 않는지 ===")
 # content 스키마에 default('') 가 있어서, 제목만 담아 PATCH 하면 zod 가 빈 문자열을
 # 채워 넣고 본문이 통째로 지워졌다. 관리자 화면은 늘 전체를 보내서 드러나지 않았다.

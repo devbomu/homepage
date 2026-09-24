@@ -9,7 +9,7 @@ import { audit } from '../../lib/audit';
 import { ApiError } from '../../lib/errors';
 import { renderMarkdown } from '../../lib/markdown';
 import { created, noContent, ok } from '../../lib/response';
-import { resolveSlug, slugify } from '../../lib/slug';
+import { resolveSlug, slugify, uniqueSlug } from '../../lib/slug';
 
 export const adminContent = new Hono<AppEnv>();
 
@@ -51,10 +51,24 @@ adminContent.post('/pages', zValidator('json', pageInput), async (c) => {
   const input = c.req.valid('json');
   const status = input.status ?? 'draft';
 
+  /*
+   * 이미 쓰이는 주소면 뒤에 번호를 붙인다 (글·카테고리와 같은 규칙).
+   * 예전에는 그대로 넣어 버려서, 같은 주소를 두 번 만들면 UNIQUE 제약에 걸려
+   * 500 이 나갔다 — 화면에는 "요청을 처리하지 못했습니다" 만 보였다.
+   */
+  const slug = await uniqueSlug(resolveSlug(input.slug), async (candidate) => {
+    const [row] = await db
+      .select({ id: pages.id })
+      .from(pages)
+      .where(eq(pages.slug, candidate))
+      .limit(1);
+    return row != null;
+  });
+
   const [row] = await db
     .insert(pages)
     .values({
-      slug: resolveSlug(input.slug),
+      slug,
       title: input.title,
       content: input.content ?? '',
       contentHtml: renderMarkdown(input.content ?? ''),
@@ -157,10 +171,20 @@ adminContent.post('/projects', zValidator('json', projectInput), async (c) => {
   const db = createDb(c.env.DB);
   const input = c.req.valid('json');
 
+  // 페이지와 같은 이유로 중복 주소는 번호를 붙여 피한다.
+  const slug = await uniqueSlug(resolveSlug(input.slug), async (candidate) => {
+    const [row] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.slug, candidate))
+      .limit(1);
+    return row != null;
+  });
+
   const [row] = await db
     .insert(projects)
     .values({
-      slug: resolveSlug(input.slug),
+      slug,
       title: input.title,
       summary: input.summary ?? null,
       description: input.description ?? '',
