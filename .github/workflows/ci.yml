@@ -4,6 +4,11 @@ on:
   pull_request:
   push:
     branches: [main]
+  # 손으로 돌릴 수 있게 둔다.
+  # 워크플로가 시작도 못 하고 끝나면(Startup failure) GitHub 이 재실행 버튼을
+  # 주지 않는다. 실제로 Actions 정책을 잘못 건드렸을 때 CI 를 되살릴 방법이
+  # 새 커밋을 푸시하는 것뿐이었다. 배포 워크플로에는 처음부터 있던 것이다.
+  workflow_dispatch:
 
 # 같은 브랜치에서 새 푸시가 오면 진행 중인 실행을 취소한다.
 concurrency:
