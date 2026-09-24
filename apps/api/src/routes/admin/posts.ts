@@ -11,14 +11,18 @@ import { analyzeContent, autoSummary, renderMarkdown } from '../../lib/markdown'
 import { hashPassword } from '../../lib/password';
 import { decodeCursor, parseLimit } from '../../lib/pagination';
 import { created, noContent, ok, paged } from '../../lib/response';
-import { resolveSlug, slugify, uniqueSlug } from '../../lib/slug';
+import { resolveSlug, uniqueSlug } from '../../lib/slug';
 import { getAdminPost, listAdminPosts, replacePostTags, softDeletePost } from '../../queries/posts';
 
 export const adminPosts = new Hono<AppEnv>();
 
 const postInput = z.object({
   title: z.string().trim().min(1, '제목을 입력해 주세요.').max(200),
-  slug: z.string().trim().max(200).optional(),
+  /**
+   * 주소. 생략하면 지금 값을 그대로 두고, null 이나 빈 문자열이면 새로 만든다.
+   * 이 셋을 구분해야 "비우고 저장하면 다시 자동 생성" 이 성립한다.
+   */
+  slug: z.string().trim().max(200).nullish(),
   summary: z.string().trim().max(500).nullish(),
   /*
    * default('') 를 쓰면 안 된다. PATCH 로 제목만 고쳐 보내도 zod 가 빈 문자열을
@@ -192,13 +196,25 @@ adminPosts.patch('/:id{[0-9]+}', validate, async (c) => {
 
   if (input.tagIds) await assertTagsExist(db, input.tagIds);
 
+  /*
+   * 주소 칸을 비우고 저장하면 새로 만든다.
+   * 값을 아예 안 보냈으면(undefined) 지금 것을 그대로 둔다 — 제목만 고치려고
+   * 보낸 PATCH 가 주소를 바꿔 버리면 기존 링크가 전부 깨진다.
+   */
   let slug = current.slug;
-  if (input.slug && input.slug !== current.slug) {
-    slug = await uniqueSlug(slugify(input.slug), (s) => slugTaken(db, s, id));
+  if (input.slug !== undefined) {
+    const next = resolveSlug(input.slug);
+    if (next !== current.slug) slug = await uniqueSlug(next, (s) => slugTaken(db, s, id));
   }
 
   const content = input.content ?? current.content;
   const contentChanged = input.content !== undefined || input.summary !== undefined;
+  /*
+   * 요약도 같은 규칙이다. null 이면 본문에서 다시 만들고(derive 가 처리한다),
+   * 안 보냈으면 지금 것을 그대로 둔다. `??` 로 합치면 "비웠다" 가 "안 보냈다" 와
+   * 같아져서 비워도 옛 요약이 그대로 남는다.
+   */
+  const summary = input.summary === undefined ? current.summary : input.summary;
   const status = input.status ?? current.status;
   const seriesId = input.seriesId === undefined ? current.seriesId : input.seriesId;
 
@@ -209,7 +225,7 @@ adminPosts.patch('/:id{[0-9]+}', validate, async (c) => {
       title: input.title ?? current.title,
       content,
       // 본문이나 요약이 안 바뀌었으면 다시 렌더하지 않는다.
-      ...(contentChanged ? derive(content, input.summary ?? current.summary) : {}),
+      ...(contentChanged ? derive(content, summary) : {}),
       categoryId: input.categoryId === undefined ? current.categoryId : input.categoryId,
       seriesId,
       seriesOrder: seriesId ? (input.seriesOrder ?? current.seriesOrder) : null,

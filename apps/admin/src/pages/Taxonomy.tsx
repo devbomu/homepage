@@ -169,7 +169,7 @@ function CategoryForm({
     mutationFn: () => {
       const body = {
         name,
-        slug: slug || undefined,
+        slug: slug || null,
         parentId,
         description: description || null,
         sortOrder,
@@ -205,7 +205,13 @@ function CategoryForm({
           />
         </Field>
 
-        <SlugField value={slug} onChange={setSlug} source={name} sourceLabel="이름" />
+        <SlugField
+          value={slug}
+          onChange={setSlug}
+          source={name}
+          sourceLabel="이름"
+          currentSlug={category?.slug}
+        />
 
         <Field label="상위 카테고리" hint="최대 6단계까지 중첩할 수 있습니다.">
           <select

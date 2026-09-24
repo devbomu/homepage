@@ -149,7 +149,8 @@ export default function PostEditor() {
 
   const payload = () => ({
     title: draft.title,
-    slug: draft.slug || undefined,
+    // 비우면 null 로 보내야 서버가 '비웠다' 와 '안 보냈다' 를 구분한다.
+    slug: draft.slug || null,
     summary: draft.summary || null,
     content: draft.content,
     categoryId: draft.categoryId,
@@ -228,6 +229,7 @@ export default function PostEditor() {
               value={draft.slug}
               onChange={(next) => update('slug', next)}
               source={draft.title}
+              currentSlug={existing.data?.slug}
             />
 
             <Field

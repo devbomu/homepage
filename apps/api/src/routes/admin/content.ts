@@ -1,4 +1,4 @@
-import { createDb, pages, POST_STATUSES, projects, siteSettings } from '@namsu/db';
+import { createDb, pages, POST_STATUSES, projects, siteSettings, type Db } from '@namsu/db';
 import { zValidator } from '@hono/zod-validator';
 import { asc, eq } from 'drizzle-orm';
 import { Hono } from 'hono';
@@ -9,7 +9,7 @@ import { audit } from '../../lib/audit';
 import { ApiError } from '../../lib/errors';
 import { renderMarkdown } from '../../lib/markdown';
 import { created, noContent, ok } from '../../lib/response';
-import { resolveSlug, slugify, uniqueSlug } from '../../lib/slug';
+import { resolveSlug, uniqueSlug } from '../../lib/slug';
 
 export const adminContent = new Hono<AppEnv>();
 
@@ -17,8 +17,35 @@ export const adminContent = new Hono<AppEnv>();
 // 단독 페이지 (/about, /now, /uses ...)
 // ---------------------------------------------------------------------------
 
+/**
+ * 저장할 주소를 정한다.
+ *
+ *  - 값이 있으면 정규화해서 쓴다
+ *  - 비어 있으면(null·빈 문자열) 임의 주소를 새로 만든다
+ *  - 이미 쓰이는 주소면 뒤에 번호를 붙인다
+ *
+ * 마지막 규칙이 없어서, 같은 주소를 두 번 만들면 UNIQUE 제약에 걸려 500 이
+ * 나가고 화면에는 "요청을 처리하지 못했습니다" 만 보였다.
+ */
+async function nextSlug(
+  db: Db,
+  table: typeof pages | typeof projects,
+  input: string | null | undefined,
+  excludeId?: number,
+): Promise<string> {
+  return uniqueSlug(resolveSlug(input), async (candidate) => {
+    const [row] = await db
+      .select({ id: table.id })
+      .from(table)
+      .where(eq(table.slug, candidate))
+      .limit(1);
+    return row != null && row.id !== excludeId;
+  });
+}
+
 const pageInput = z.object({
-  slug: z.string().trim().max(200).optional(),
+  // 생략=유지, null/빈 문자열=새로 만들기, 값=그대로 (posts.ts 에 같은 주석).
+  slug: z.string().trim().max(200).nullish(),
   title: z.string().trim().min(1, '제목을 입력해 주세요.').max(200),
   // default('') 를 쓰면 PATCH 로 제목만 고쳐도 본문이 빈 문자열로 덮인다.
   // 기본값은 생성 시점에만 적용한다 (posts.ts 에 같은 주석).
@@ -56,14 +83,7 @@ adminContent.post('/pages', zValidator('json', pageInput), async (c) => {
    * 예전에는 그대로 넣어 버려서, 같은 주소를 두 번 만들면 UNIQUE 제약에 걸려
    * 500 이 나갔다 — 화면에는 "요청을 처리하지 못했습니다" 만 보였다.
    */
-  const slug = await uniqueSlug(resolveSlug(input.slug), async (candidate) => {
-    const [row] = await db
-      .select({ id: pages.id })
-      .from(pages)
-      .where(eq(pages.slug, candidate))
-      .limit(1);
-    return row != null;
-  });
+  const slug = await nextSlug(db, pages, input.slug);
 
   const [row] = await db
     .insert(pages)
@@ -102,7 +122,8 @@ adminContent.patch('/pages/:id{[0-9]+}', zValidator('json', pageInput.partial())
   const [row] = await db
     .update(pages)
     .set({
-      ...(input.slug ? { slug: slugify(input.slug) } : {}),
+      // 비우고 저장하면 새 주소를 만든다. 안 보냈으면 그대로 둔다.
+      ...(input.slug !== undefined ? { slug: await nextSlug(db, pages, input.slug, id) } : {}),
       title: input.title ?? current.title,
       content,
       ...(input.content !== undefined ? { contentHtml: renderMarkdown(content) } : {}),
@@ -139,7 +160,8 @@ adminContent.delete('/pages/:id{[0-9]+}', async (c) => {
 // ---------------------------------------------------------------------------
 
 const projectInput = z.object({
-  slug: z.string().trim().max(200).optional(),
+  // 생략=유지, null/빈 문자열=새로 만들기, 값=그대로.
+  slug: z.string().trim().max(200).nullish(),
   title: z.string().trim().min(1, '제목을 입력해 주세요.').max(200),
   summary: z.string().trim().max(500).nullish(),
   // 위와 같은 이유로 default 를 두지 않는다.
@@ -172,14 +194,7 @@ adminContent.post('/projects', zValidator('json', projectInput), async (c) => {
   const input = c.req.valid('json');
 
   // 페이지와 같은 이유로 중복 주소는 번호를 붙여 피한다.
-  const slug = await uniqueSlug(resolveSlug(input.slug), async (candidate) => {
-    const [row] = await db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.slug, candidate))
-      .limit(1);
-    return row != null;
-  });
+  const slug = await nextSlug(db, projects, input.slug);
 
   const [row] = await db
     .insert(projects)
@@ -222,7 +237,8 @@ adminContent.patch(
     const [row] = await db
       .update(projects)
       .set({
-        ...(input.slug ? { slug: slugify(input.slug) } : {}),
+        // 비우고 저장하면 새 주소를 만든다. 안 보냈으면 그대로 둔다.
+        ...(input.slug !== undefined ? { slug: await nextSlug(db, projects, input.slug, id) } : {}),
         title: input.title ?? current.title,
         summary: input.summary === undefined ? current.summary : input.summary,
         description,

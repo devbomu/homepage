@@ -126,7 +126,7 @@ function PageForm({
     mutationFn: () => {
       const body = {
         title,
-        slug: slug || undefined,
+        slug: slug || null,
         content,
         status,
         showInNav,
@@ -152,7 +152,7 @@ function PageForm({
             onChange={(e) => setTitle(e.target.value)}
           />
         </Field>
-        <SlugField value={slug} onChange={setSlug} source={title} />
+        <SlugField value={slug} onChange={setSlug} source={title} currentSlug={page?.slug} />
       </div>
 
       <MarkdownEditor value={content} onChange={setContent} minHeight="min-h-64" />

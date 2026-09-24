@@ -8,7 +8,7 @@ import type { AppEnv } from '../../env';
 import { audit } from '../../lib/audit';
 import { ApiError } from '../../lib/errors';
 import { created, noContent, ok } from '../../lib/response';
-import { resolveSlug, slugify, uniqueSlug } from '../../lib/slug';
+import { resolveSlug, uniqueSlug } from '../../lib/slug';
 import {
   createCategory,
   deleteCategory,
@@ -24,7 +24,8 @@ export const adminTaxonomy = new Hono<AppEnv>();
 
 const categoryInput = z.object({
   parentId: z.number().int().positive().nullish(),
-  slug: z.string().trim().max(200).optional(),
+  // 생략=유지, null/빈 문자열=새로 만들기, 값=그대로.
+  slug: z.string().trim().max(200).nullish(),
   name: z.string().trim().min(1, '이름을 입력해 주세요.').max(100),
   description: z.string().trim().max(1000).nullish(),
   sortOrder: z.number().int().min(0).max(9999).optional(),
@@ -61,7 +62,8 @@ adminTaxonomy.patch(
 
     const row = await updateCategory(db, id, {
       parentId: input.parentId,
-      slug: input.slug ? slugify(input.slug) : undefined,
+      // 비우고 저장하면 새 주소를 만든다. 안 보냈으면 그대로 둔다.
+      slug: input.slug === undefined ? undefined : resolveSlug(input.slug),
       name: input.name,
       description: input.description,
       sortOrder: input.sortOrder,
@@ -86,7 +88,8 @@ adminTaxonomy.delete('/categories/:id{[0-9]+}', async (c) => {
 // ---------------------------------------------------------------------------
 
 const tagInput = z.object({
-  slug: z.string().trim().max(200).optional(),
+  // 생략=유지, null/빈 문자열=새로 만들기, 값=그대로.
+  slug: z.string().trim().max(200).nullish(),
   name: z.string().trim().min(1, '이름을 입력해 주세요.').max(50),
   description: z.string().trim().max(500).nullish(),
 });
@@ -126,7 +129,7 @@ adminTaxonomy.patch('/tags/:id{[0-9]+}', zValidator('json', tagInput.partial()),
   const result = await db
     .update(tags)
     .set({
-      ...(input.slug ? { slug: slugify(input.slug) } : {}),
+      ...(input.slug !== undefined ? { slug: resolveSlug(input.slug) } : {}),
       ...(input.name ? { name: input.name } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
     })
@@ -155,7 +158,8 @@ adminTaxonomy.delete('/tags/:id{[0-9]+}', async (c) => {
 // ---------------------------------------------------------------------------
 
 const seriesInput = z.object({
-  slug: z.string().trim().max(200).optional(),
+  // 생략=유지, null/빈 문자열=새로 만들기, 값=그대로.
+  slug: z.string().trim().max(200).nullish(),
   title: z.string().trim().min(1, '제목을 입력해 주세요.').max(200),
   description: z.string().trim().max(1000).nullish(),
   coverImageUrl: z.string().trim().max(2000).nullish(),
@@ -201,7 +205,7 @@ adminTaxonomy.patch('/series/:id{[0-9]+}', zValidator('json', seriesInput.partia
   const result = await db
     .update(series)
     .set({
-      ...(input.slug ? { slug: slugify(input.slug) } : {}),
+      ...(input.slug !== undefined ? { slug: resolveSlug(input.slug) } : {}),
       ...(input.title ? { title: input.title } : {}),
       ...(input.description !== undefined ? { description: input.description } : {}),
       ...(input.coverImageUrl !== undefined ? { coverImageUrl: input.coverImageUrl } : {}),

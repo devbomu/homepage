@@ -140,7 +140,7 @@ function ProjectForm({
     mutationFn: () => {
       const body = {
         ...form,
-        slug: form.slug || undefined,
+        slug: form.slug || null,
         summary: form.summary || null,
         repoUrl: form.repoUrl || null,
         demoUrl: form.demoUrl || null,
@@ -172,7 +172,12 @@ function ProjectForm({
             onChange={(e) => set('title', e.target.value)}
           />
         </Field>
-        <SlugField value={form.slug} onChange={(next) => set('slug', next)} source={form.title} />
+        <SlugField
+          value={form.slug}
+          onChange={(next) => set('slug', next)}
+          source={form.title}
+          currentSlug={project?.slug}
+        />
       </div>
 
       <Field label="한 줄 소개">

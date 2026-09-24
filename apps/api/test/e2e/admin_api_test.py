@@ -106,6 +106,41 @@ check("본문이 그대로 남아 있다", "## 소개" in (d.get("content") or "
 check("렌더된 HTML 도 그대로", "<h2>소개</h2>" in (d.get("contentHtml") or ""))
 check("제목은 바뀌었다", d.get("title") == "제목만 바꿔 본다", repr(d.get("title")))
 
+print("\n=== 비우고 저장하면 다시 자동 생성 ===")
+# 보내지 않음(생략) / 비움(null) / 값 지정 셋을 구분해야 한다.
+# 예전에는 `input.summary ?? current.summary` 로 합쳐서, 비워도 옛 요약이 남았다.
+s, b = call("PATCH", f"/v1/admin/posts/{post_id}", {"slug": "my-fixed-slug"})
+check("주소를 주면 정규화해서 쓴다", s == 200 and b["data"]["slug"] == "my-fixed-slug", f"{s} {b}")
+
+s, b = call("PATCH", f"/v1/admin/posts/{post_id}", {"title": "주소는 안 보냄"})
+check("주소를 안 보내면 그대로", s == 200 and b["data"]["slug"] == "my-fixed-slug",
+      f"{s} {b.get('data', {}).get('slug')}")
+
+s, b = call("PATCH", f"/v1/admin/posts/{post_id}", {"slug": None})
+new_slug = b["data"]["slug"] if s == 200 else ""
+check("주소를 비우면 새로 만든다",
+      s == 200 and new_slug != "my-fixed-slug" and re.fullmatch(r"[0-9a-z]{10}", new_slug),
+      f"{s} {new_slug}")
+
+s, b = call("PATCH", f"/v1/admin/posts/{post_id}", {"summary": "손으로 쓴 요약"})
+check("요약을 주면 그대로 쓴다", s == 200 and b["data"]["summary"] == "손으로 쓴 요약", f"{s}")
+s, b = call("PATCH", f"/v1/admin/posts/{post_id}", {"title": "요약은 안 보냄"})
+check("요약을 안 보내면 그대로", s == 200 and b["data"]["summary"] == "손으로 쓴 요약",
+      str(b.get("data", {}).get("summary")))
+s, b = call("PATCH", f"/v1/admin/posts/{post_id}", {"summary": None})
+auto = b["data"]["summary"] if s == 200 else ""
+check("요약을 비우면 본문에서 다시 만든다", s == 200 and auto and auto != "손으로 쓴 요약", f"{s} {auto!r}")
+
+# 페이지·분류도 같은 규칙이어야 한다.
+s, b = call("POST", "/v1/admin/pages", {"title": "주소 규칙 확인", "slug": "slug-rule", "content": "x"})
+page_id = b["data"]["id"]
+s, b = call("PATCH", f"/v1/admin/pages/{page_id}", {"title": "제목만"})
+check("페이지: 주소를 안 보내면 그대로", s == 200 and b["data"]["slug"] == "slug-rule", f"{s}")
+s, b = call("PATCH", f"/v1/admin/pages/{page_id}", {"slug": None})
+check("페이지: 비우면 새로 만든다",
+      s == 200 and re.fullmatch(r"[0-9a-z]{10}", b["data"]["slug"]) is not None,
+      str(b.get("data", {}).get("slug")))
+
 print("\n=== 긴 본문 수정 (FTS 색인 동기화) ===")
 # 본문이 50자쯤을 넘으면 수정이 SQLITE_CORRUPT_VTAB 으로 실패했다.
 # 외부 콘텐츠 FTS5 의 'delete' 가 색인과 원본의 글자 단위 일치를 요구했기 때문이다.

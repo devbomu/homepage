@@ -31,10 +31,20 @@ interface Props {
   source: string;
   /** 버튼에 쓸 말. 카테고리·태그는 '이름' 이다. */
   sourceLabel?: string;
+  /** 이미 저장된 주소. 있으면 비웠을 때 경고를 띄운다. */
+  currentSlug?: string | null;
 }
 
-export default function SlugField({ value, onChange, source, sourceLabel = '제목' }: Props) {
+export default function SlugField({
+  value,
+  onChange,
+  source,
+  sourceLabel = '제목',
+  currentSlug,
+}: Props) {
   const derived = slugify(source);
+  // 이미 주소가 있는 글을 비운 채로 저장하면 주소가 바뀐다 — 기존 링크가 깨진다.
+  const willChange = Boolean(currentSlug) && value.trim() === '';
 
   return (
     <Field label="주소(slug)" hint="비워두면 임의의 주소가 자동으로 만들어집니다.">
@@ -56,6 +66,13 @@ export default function SlugField({ value, onChange, source, sourceLabel = '제�
           {sourceLabel}에서
         </button>
       </div>
+
+      {willChange && (
+        <p className="text-warning mt-1 text-xs">
+          비운 채로 저장하면 새 주소가 만들어집니다. 지금 주소(
+          <span className="font-mono">{currentSlug}</span>)로 걸어둔 링크는 열리지 않게 됩니다.
+        </p>
+      )}
     </Field>
   );
 }
