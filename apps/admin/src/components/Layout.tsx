@@ -53,7 +53,11 @@ export default function Layout() {
             <p className="text-base-content/50 text-xs">관리자</p>
           </div>
 
-          <ul className="menu flex-1 gap-1 p-3">
+          {/*
+            daisyUI 의 .menu 는 폭이 내용에 맞춰진다(fit-content). 사이드바는 w-60 인데
+            메뉴만 96px 로 남아 버튼이 글자만 감싸고 있었다. w-full 로 늘린다.
+          */}
+          <ul className="menu w-full flex-1 gap-1 p-3">
             {NAV.map((item) => (
               <li key={item.to}>
                 <NavLink
