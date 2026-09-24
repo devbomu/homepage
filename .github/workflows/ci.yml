@@ -35,7 +35,7 @@ jobs:
         run: pnpm typecheck
 
       - name: 유닛 테스트
-        run: pnpm --filter @namsu/api test
+        run: pnpm test
 
       - name: 빌드
         run: pnpm build
