@@ -147,6 +147,44 @@ function alertAction(kind: string): Action {
 /** 목록·인용 줄의 머리 표기. Enter 를 쳤을 때 다음 줄에 이어 붙인다. */
 const LIST_LINE = /^(\s*)(?:- \[[ xX]\]|([-*+])|(\d+)\.|(>))\s+/;
 
+/**
+ * 목록·인용 안에서 Enter 를 쳤을 때 할 일을 계산한다.
+ *
+ * 순수 함수로 떼어 둔 이유는 테스트 때문이다. DOM 없이 글자와 커서 위치만으로
+ * 결과가 정해지므로, 한글 입력처럼 재현하기 까다로운 경우도 여기서는 그냥
+ * "이 글자에 이 커서" 로 확인할 수 있다.
+ *
+ * 이어갈 것이 없으면 null 을 돌려주고, 호출부는 브라우저 기본 동작에 맡긴다.
+ */
+export function continueList(text: string, caret: number): { text: string; caret: number } | null {
+  const lineStart = text.lastIndexOf('\n', caret - 1) + 1;
+  const line = text.slice(lineStart, caret);
+  const match = LIST_LINE.exec(line);
+  if (!match) return null;
+
+  // 표기만 있고 내용이 비어 있으면 목록을 끝낸다.
+  if (line.trim() === match[0].trim()) {
+    return { text: `${text.slice(0, lineStart)}${text.slice(caret)}`, caret: lineStart };
+  }
+
+  const [, indent, bullet, ordered, quote] = match;
+  const marker = match[0].includes('[')
+    ? '- [ ] '
+    : bullet
+      ? `${bullet} `
+      : ordered
+        ? `${Number(ordered) + 1}. `
+        : quote
+          ? '> '
+          : '';
+
+  const insert = `\n${indent ?? ''}${marker}`;
+  return {
+    text: `${text.slice(0, caret)}${insert}${text.slice(caret)}`,
+    caret: caret + insert.length,
+  };
+}
+
 export default function MarkdownEditor({
   value,
   onChange,
@@ -211,6 +249,8 @@ export default function MarkdownEditor({
       const focused = document.activeElement === node;
       const start = focused ? node.selectionStart : lastSelection.current[0];
       const end = focused ? node.selectionEnd : lastSelection.current[1];
+      // 커서 위치가 DOM 기준이므로 글자도 DOM 에서 읽는다 (위 continueList 와 같은 이유).
+      const value = node.value;
       const selected = value.slice(start, end);
 
       if (action.kind === 'wrap') {
@@ -250,7 +290,7 @@ export default function MarkdownEditor({
       // 표기는 빼고 글자만 선택한다. `- ` 까지 잡혀 있으면 바로 고쳐 쓸 수 없다.
       apply(next, lineStart + action.prefix.length, lineStart + prefixed.length);
     },
-    [apply, value],
+    [apply],
   );
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -270,38 +310,29 @@ export default function MarkdownEditor({
 
     if (event.key !== 'Enter' || event.shiftKey) return;
 
+    /*
+     * 한글을 조합하는 중이면 손대지 않는다.
+     *
+     * 한글 입력기는 마지막 글자를 아직 확정하지 않은 상태로 들고 있다가
+     * Enter 를 확정 신호로 쓴다. 이때 우리가 가로채 줄을 만들면 확정된 글자가
+     * 새 줄에 한 번 더 들어가, 끝 글자가 아래로 복사된 것처럼 보인다.
+     * 조합이 끝난 뒤의 Enter 만 우리 것이다.
+     */
+    if (event.nativeEvent.isComposing) return;
+
     // 목록 안에서 Enter: 다음 줄에 같은 표기를 이어 준다.
     const node = event.currentTarget;
-    const start = node.selectionStart;
-    if (start !== node.selectionEnd) return;
+    if (node.selectionStart !== node.selectionEnd) return;
 
-    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-    const line = value.slice(lineStart, start);
-    const match = LIST_LINE.exec(line);
-    if (!match) return;
+    /*
+     * 글자는 React 상태가 아니라 DOM 에서 읽는다. 커서 위치(selectionStart)가
+     * DOM 기준이라, 상태가 한 글자라도 뒤처져 있으면 엉뚱한 자리를 자른다.
+     */
+    const result = continueList(node.value, node.selectionStart);
+    if (!result) return;
 
     event.preventDefault();
-
-    // 표기만 있고 내용이 비어 있으면 목록을 끝낸다.
-    if (line.trim() === match[0].trim()) {
-      const next = `${value.slice(0, lineStart)}${value.slice(start)}`;
-      apply(next, lineStart, lineStart);
-      return;
-    }
-
-    const [, indent, bullet, ordered, quote] = match;
-    const marker = match[0].includes('[')
-      ? '- [ ] '
-      : bullet
-        ? `${bullet} `
-        : ordered
-          ? `${Number(ordered) + 1}. `
-          : quote
-            ? '> '
-            : '';
-    const insert = `\n${indent ?? ''}${marker}`;
-    const next = `${value.slice(0, start)}${insert}${value.slice(start)}`;
-    apply(next, start + insert.length, start + insert.length);
+    apply(result.text, result.caret, result.caret);
   };
 
   return (
