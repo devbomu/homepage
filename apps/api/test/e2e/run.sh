@@ -46,3 +46,8 @@ echo
 echo "▶ 비밀글"
 reseed
 python3 "$(dirname "${BASH_SOURCE[0]}")/protected_posts_test.py"
+
+echo
+echo "▶ 방명록"
+reseed
+python3 "$(dirname "${BASH_SOURCE[0]}")/guestbook_test.py"

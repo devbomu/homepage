@@ -107,9 +107,19 @@ export interface Project {
 }
 
 export interface PageMeta {
+  /** 목록 API 중 일부만 내려준다 (방명록 등). */
+  total?: number;
   limit: number;
   nextCursor: string | null;
   hasMore: boolean;
+}
+
+export interface GuestbookEntry {
+  id: number;
+  authorName: string;
+  authorWebsite: string | null;
+  body: string;
+  createdAt: number;
 }
 
 export interface SiteSettings {
@@ -271,6 +281,12 @@ export const api = {
     },
     get(slug: string) {
       return optional(request<ProjectDetail>(`/v1/projects/${encodeURIComponent(slug)}`));
+    },
+  },
+
+  guestbook: {
+    list(limit = 50) {
+      return request<GuestbookEntry[]>(`/v1/guestbook?limit=${limit}`);
     },
   },
 

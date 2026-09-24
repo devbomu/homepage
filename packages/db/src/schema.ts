@@ -401,6 +401,48 @@ export const projects = sqliteTable(
 );
 
 /** R2 에 올린 이미지/첨부의 메타데이터. 파일 실체는 R2 에 있다. */
+/**
+ * 방명록.
+ *
+ * 댓글과 닮았지만 일부러 따로 둔다. 글에 붙지 않으므로 post_id 가 없고,
+ * 답글도 없다 — parent_id 가 없으니 트리 조립, 깊이 제한, 답글 알림 같은
+ * 것들이 전부 필요 없어진다. comments 에 post_id 를 nullable 로 만들어
+ * 겸용하면 그 모든 코드가 "방명록이면 건너뛴다" 분기로 뒤덮인다.
+ */
+export const guestbook = sqliteTable(
+  'guestbook',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+
+    authorName: text('author_name').notNull(),
+    // 댓글과 같은 규칙: 공개 쿼리에서 아예 SELECT 하지 않는다.
+    authorEmail: text('author_email'),
+    authorWebsite: text('author_website'),
+
+    body: text('body').notNull(),
+    status: text('status', { enum: COMMENT_STATUSES }).notNull().default('approved'),
+
+    visitorHash: text('visitor_hash'),
+    userAgent: text('user_agent'),
+
+    ...timestamps,
+    deletedAt: integer('deleted_at'),
+  },
+  (t) => [
+    index('guestbook_public_idx')
+      .on(t.createdAt)
+      .where(sql`status = 'approved' and deleted_at is null`),
+    index('guestbook_moderation_idx')
+      .on(t.status, t.createdAt)
+      .where(sql`deleted_at is null`),
+    // 같은 방문자의 연속 도배를 잡기 위한 조회
+    index('guestbook_visitor_recent_idx').on(t.visitorHash, t.createdAt),
+
+    check('guestbook_author_ck', sql`length(${t.authorName}) between 1 and 50`),
+    check('guestbook_body_ck', sql`length(${t.body}) between 1 and 2000`),
+  ],
+);
+
 export const media = sqliteTable(
   'media',
   {

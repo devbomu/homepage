@@ -22,6 +22,8 @@ const ALIAS_HOSTS = new Set(['namsu.kim']);
 const CACHE_RULES: [RegExp, number][] = [
   // 방문자마다 다르거나 색인할 이유가 없는 것은 캐시하지 않는다.
   [/^\/search/, 0],
+  // 방명록은 방문자가 남기는 대로 바뀐다. 글 목록과 같은 정도로만 캐시한다.
+  [/^\/guestbook$/, 60],
   // 분류 체계는 거의 안 바뀐다.
   [/^\/(categories|tags|projects)$/, 300],
   [/^\/(sitemap\.xml|robots\.txt)$/, 3600],

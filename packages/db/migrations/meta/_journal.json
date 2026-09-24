@@ -36,6 +36,13 @@
       "when": 1790191216920,
       "tag": "0004_protected_posts",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1790225139231,
+      "tag": "0005_guestbook",
+      "breakpoints": true
     }
   ]
 }

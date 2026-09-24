@@ -7,6 +7,7 @@ import { securityHeaders } from './middleware/security';
 import { publishDueContent } from './queries/schedule';
 import { adminRoutes } from './routes/admin';
 import { publicEngagement } from './routes/public/engagement';
+import { publicGuestbook } from './routes/public/guestbook';
 import { publicPosts } from './routes/public/posts';
 import { publicSite } from './routes/public/site';
 import { publicTaxonomy } from './routes/public/taxonomy';
@@ -58,6 +59,7 @@ app.get('/health', (c) => c.json({ status: 'ok', environment: c.env.ENVIRONMENT 
 app.route('/v1/posts', publicPosts);
 // 좋아요/댓글/조회수도 /v1/posts/:slug/... 아래에 붙는다.
 app.route('/v1/posts', publicEngagement);
+app.route('/v1/guestbook', publicGuestbook);
 app.route('/v1', publicTaxonomy);
 app.route('/v1', publicSite);
 

@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router';
 
 import Layout from './components/Layout';
 import Comments from './pages/Comments';
+import Guestbook from './pages/Guestbook';
 import Dashboard from './pages/Dashboard';
 import Media from './pages/Media';
 import NotFound from './pages/NotFound';
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="posts/:id" element={<PostEditor />} />
         <Route path="taxonomy" element={<Taxonomy />} />
         <Route path="comments" element={<Comments />} />
+        <Route path="guestbook" element={<Guestbook />} />
         <Route path="media" element={<Media />} />
         <Route path="pages" element={<SitePages />} />
         <Route path="projects" element={<Projects />} />

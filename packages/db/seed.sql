@@ -2,6 +2,7 @@
 -- 실행: pnpm db:seed:local
 
 DELETE FROM comments;
+DELETE FROM guestbook;
 DELETE FROM post_likes;
 DELETE FROM post_tags;
 DELETE FROM posts;

@@ -27,6 +27,7 @@ export const GET: APIRoute = async ({ site }) => {
     { loc: '/categories', priority: '0.6' },
     { loc: '/tags', priority: '0.6' },
     { loc: '/projects', priority: '0.7' },
+    { loc: '/guestbook', priority: '0.4' },
   ];
 
   for (const post of feed) {

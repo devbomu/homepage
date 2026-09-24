@@ -8,7 +8,7 @@
   4. 비밀번호를 맞히면 본문과 토큰이 나오고, 토큰으로 다시 열 수 있다.
 """
 
-import json, urllib.parse, urllib.request, urllib.error, sys, uuid
+import hashlib, json, urllib.parse, urllib.request, urllib.error, sys, uuid
 
 BASE = "http://localhost:8787"
 RUN = uuid.uuid4().hex[:8]
@@ -17,10 +17,13 @@ CANARY = f"CANARY{RUN}"
 passed, failed = 0, 0
 
 
-def call(method, path, body=None):
+def call(method, path, body=None, persona="기본"):
     req = urllib.request.Request(BASE + urllib.parse.quote(path, safe="/%?=&"), method=method)
     req.add_header("Origin", "http://localhost:4321")
-    req.add_header("User-Agent", f"namsu-protected-test/{RUN}")
+    # 해제 시도는 방문자별로 분당 10회까지다. 실제로도 사람마다 예산이 따로이므로
+    # 테스트에서도 방문자를 나눠 부른다 (UA 가 방문자 해시에 들어간다).
+    tag = hashlib.sha256(persona.encode()).hexdigest()[:8]
+    req.add_header("User-Agent", f"namsu-protected-test/{RUN}/{tag}")
     data = None
     if body is not None:
         data = json.dumps(body).encode()
@@ -133,10 +136,11 @@ check("토큰으로 다시 열린다", s == 200 and CANARY in b["data"]["content
 s, b = call("POST", f"/v1/posts/{slug_masked}/unlock", {"token": token})
 check("다른 글의 토큰은 안 먹는다", s == 403, f"{s} {b}")
 
-s, b = call("POST", f"/v1/posts/{slug_title}/unlock", {"token": "1.9999999999.forged"})
+s, b = call("POST", f"/v1/posts/{slug_title}/unlock", {"token": "1.9999999999.forged"},
+            persona="다른방문자")
 check("위조 토큰은 403", s == 403, f"{s} {b}")
 
-s, b = call("POST", "/v1/posts/hello-world/unlock", {"password": PASSWORD})
+s, b = call("POST", "/v1/posts/hello-world/unlock", {"password": PASSWORD}, persona="다른방문자")
 check("비밀글이 아닌 글은 400", s == 400, f"{s} {b}")
 
 print("\n=== 관리자 ===")

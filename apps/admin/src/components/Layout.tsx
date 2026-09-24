@@ -9,6 +9,7 @@ const NAV = [
   { to: '/posts', label: '글' },
   { to: '/taxonomy', label: '분류' },
   { to: '/comments', label: '댓글' },
+  { to: '/guestbook', label: '방명록' },
   { to: '/media', label: '미디어' },
   { to: '/pages', label: '페이지' },
   { to: '/projects', label: '프로젝트' },
