@@ -6,6 +6,8 @@
  * Frosti 는 Tailwind 3 의 JS 설정을 쓰지만 여기서는 Tailwind 4 의 CSS 우선 설정을 쓴다.
  */
 @import 'tailwindcss';
+/* 공개 사이트와 관리자 미리보기가 함께 쓰는 본문 스타일. */
+@import '@namsu/prose';
 
 @plugin '@tailwindcss/typography';
 @plugin 'daisyui' {
@@ -79,91 +81,5 @@
 
   .content-width {
     @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
-  }
-}
-
-/*
- * 본문 타이포그래피.
- *
- * API 가 마크다운을 렌더해 넘긴 HTML 을 그대로 꽂으므로,
- * Typography 플러그인의 prose 클래스로 스타일을 입힌다.
- */
-.prose {
-  :where(h2, h3, h4):hover .heading-anchor {
-    @apply opacity-100;
-  }
-
-  .heading-anchor {
-    @apply text-primary ml-2 no-underline opacity-0 transition-opacity;
-  }
-
-  pre {
-    @apply bg-neutral text-neutral-content rounded-xl;
-  }
-
-  /* 인라인 코드의 기본 백틱 장식을 걷어낸다. */
-  :not(pre) > code {
-    @apply bg-base-200 text-base-content rounded px-1.5 py-0.5 font-normal;
-    &::before,
-    &::after {
-      content: none;
-    }
-  }
-
-  blockquote {
-    @apply border-primary bg-base-200/50 rounded-r-lg py-1 not-italic;
-    p:first-of-type::before,
-    p:last-of-type::after {
-      content: none;
-    }
-  }
-
-  table {
-    @apply block overflow-x-auto md:table;
-  }
-
-  img {
-    @apply rounded-xl;
-  }
-
-  /*
-   * 알림 상자 (`> [!NOTE]`). 종류별 색은 테마 토큰으로만 쓴다 —
-   * winter 에서 흐린 색이 dracula 에서는 밝아지므로, 글자색까지 종류 색으로
-   * 칠하면 한쪽 테마에서 반드시 읽기 어려워진다. 테두리와 옅은 배경만 칠하고
-   * 제목은 본문 색 + 이모지로 구분한다.
-   */
-  .md-alert {
-    @apply bg-base-200/60 my-5 rounded-lg border-l-4 px-4 py-3;
-    > :last-child {
-      @apply mb-0;
-    }
-    > :first-child {
-      @apply mt-0;
-    }
-  }
-
-  .md-alert-title {
-    @apply mt-0 mb-1 flex items-center gap-1.5 text-sm font-semibold not-italic;
-  }
-
-  .md-alert-note {
-    @apply border-primary bg-primary/10;
-  }
-  .md-alert-tip {
-    @apply border-success bg-success/10;
-  }
-  .md-alert-important {
-    @apply border-secondary bg-secondary/10;
-  }
-  .md-alert-warning {
-    @apply border-warning bg-warning/20;
-  }
-  .md-alert-caution {
-    @apply border-error bg-error/10;
-  }
-
-  /* 형광펜 (`==중요==`). */
-  mark {
-    @apply bg-warning/50 text-base-content rounded px-1 py-0.5;
   }
 }

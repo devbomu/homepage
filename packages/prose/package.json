@@ -1,0 +1,14 @@
+{
+  "name": "@namsu/prose",
+  "version": "0.1.0",
+  "private": true,
+  "description": "공개 사이트와 관리자 미리보기가 함께 쓰는 본문 스타일",
+  "main": "prose.css",
+  "style": "prose.css",
+  "exports": {
+    ".": "./prose.css"
+  },
+  "files": [
+    "prose.css"
+  ]
+}

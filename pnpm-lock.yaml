@@ -29,6 +29,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@namsu/prose':
+        specifier: workspace:*
+        version: link:../../packages/prose
       '@tanstack/react-query':
         specifier: ^5.103.2
         version: 5.103.2(react@19.3.0)
@@ -121,6 +124,9 @@ importers:
       '@astrojs/cloudflare':
         specifier: ^14.3.2
         version: 14.3.2(astro@7.3.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(jiti@2.7.0)(sass-embedded@1.104.1)(sass@1.104.1)(tsx@4.23.15)(yaml@2.9.1))(esbuild@0.28.2)(jiti@2.7.0)(sass-embedded@1.104.1)(sass@1.104.1)(tsx@4.23.15)(wrangler@4.136.2(@cloudflare/workers-types@5.20260922.1))(yaml@2.9.1)
+      '@namsu/prose':
+        specifier: workspace:*
+        version: link:../../packages/prose
       astro:
         specifier: ^7.3.3
         version: 7.3.3(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(jiti@2.7.0)(sass-embedded@1.104.1)(sass@1.104.1)(tsx@4.23.15)(yaml@2.9.1)
@@ -171,6 +177,8 @@ importers:
       wrangler:
         specifier: ^4.136.2
         version: 4.136.2(@cloudflare/workers-types@5.20260922.1)
+
+  packages/prose: {}
 
 packages:
 

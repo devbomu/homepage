@@ -388,7 +388,12 @@ export default function MarkdownEditor({
           <Loading />
         ) : (
           <div
-            className={`preview bg-base-200/40 rounded-lg p-4 ${minHeight}`}
+            /*
+             * 공개 화면과 같은 클래스를 쓴다 (`prose prose-lg`).
+             * 예전에는 관리자만 쓰는 `.preview` 안에 스타일을 따로 적어 두어서,
+             * 공개 화면의 인용문·표·이미지 스타일이 미리보기에는 없었다.
+             */
+            className={`prose prose-lg bg-base-200/40 max-w-none rounded-lg p-4 ${minHeight}`}
             // 서버가 렌더한 HTML 이다. 원시 HTML 이스케이프와 URL 스킴 검사를 거친 결과라
             // 공개 화면에 나갈 것과 완전히 같다.
             dangerouslySetInnerHTML={{ __html: preview.data ?? '' }}
