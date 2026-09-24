@@ -1,42 +1,52 @@
 // @ts-check
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import cloudflare from '@astrojs/cloudflare';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
 
+/** 본문이 있는 is:inline 스크립트. src 만 있는 것(비컨·gtag 로더·Turnstile)은 제외한다. */
+const INLINE_SCRIPT = /<script\b(?![^>]*\bsrc=)[^>]*\bis:inline\b[^>]*>([\s\S]*?)<\/script>/g;
+
 /**
- * is:inline 스크립트의 CSP 해시를 파일에서 읽어 계산한다.
+ * is:inline 스크립트의 CSP 해시를 원본에서 읽어 계산한다.
  *
  * Astro 는 자기가 처리한 스크립트만 해시해 준다. is:inline 은 손대지 않고
  * 그대로 내보내기 때문에 해시 목록에도 들어가지 않는다. 직접 넣어야 한다.
  *
- * 해시 문자열을 여기 상수로 적어두지 않는 이유: 스크립트를 한 글자만 고쳐도
- * 해시가 어긋나는데, 그 고장이 조용하다. 테마 스크립트가 막히면 빌드는
- * 멀쩡히 성공하고 다크 모드 사용자만 흰 화면을 보게 된다. 그래서 빌드마다
- * 원본에서 다시 계산한다.
+ * 해시를 상수로 적어두지 않는 이유: 스크립트를 한 글자만 고쳐도 해시가 어긋나는데
+ * 그 고장이 조용하다. 빌드는 성공하고 스크립트만 차단된다.
  *
- * src 가 있는 is:inline(비컨·gtag 로더·Turnstile)은 본문이 없으므로 제외한다.
- * 그쪽은 scriptDirective.resources 의 호스트 허용으로 통과한다.
+ * 한 파일만 훑지 않는 이유도 같다. 예전에는 BaseLayout 만 봤는데, 다른 .astro 에
+ * 인라인 스크립트를 추가하면 해시가 없는 채로 배포되고 그 화면만 조용히 깨졌다.
+ * 디렉터리 전체를 훑으면 파일을 어디에 만들든 자동으로 따라온다.
+ *
+ * @param {string} relativeDir 이 파일 기준 상대 디렉터리 (예: './src/')
+ * @returns {`sha256-${string}`[]}
  */
-/** @param {string} relativePath @returns {`sha256-${string}`[]} */
-function inlineScriptHashes(relativePath) {
-  const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
-  const pattern = /<script\b(?![^>]*\bsrc=)[^>]*\bis:inline\b[^>]*>([\s\S]*?)<\/script>/g;
-  const bodies = [...source.matchAll(pattern)].map((match) => match[1]);
+function inlineScriptHashes(relativeDir) {
+  const root = fileURLToPath(new URL(relativeDir, import.meta.url));
+  const files = readdirSync(root, { recursive: true, encoding: 'utf8' })
+    .filter((name) => name.endsWith('.astro'))
+    // 빌드마다 해시 순서가 흔들리지 않게 고정한다.
+    .sort();
 
-  if (bodies.length === 0) {
-    // 조용히 빈 목록을 돌려주면 CSP 가 통과하면서 스크립트만 막힌다. 차라리 빌드를 세운다.
-    throw new Error(`${relativePath} 에서 본문 있는 is:inline 스크립트를 찾지 못했습니다.`);
+  const hashes = new Set();
+  for (const name of files) {
+    const source = readFileSync(path.join(root, name), 'utf8');
+    for (const [, body] of source.matchAll(INLINE_SCRIPT)) {
+      hashes.add(`sha256-${createHash('sha256').update(body, 'utf8').digest('base64')}`);
+    }
   }
 
-  return bodies.map(
-    (body) =>
-      /** @type {`sha256-${string}`} */ (
-        `sha256-${createHash('sha256').update(body, 'utf8').digest('base64')}`
-      ),
-  );
+  if (hashes.size === 0) {
+    // 조용히 빈 목록을 돌려주면 CSP 가 통과하면서 스크립트만 막힌다. 차라리 빌드를 세운다.
+    throw new Error(`${relativeDir} 에서 본문 있는 is:inline 스크립트를 찾지 못했습니다.`);
+  }
+  return /** @type {`sha256-${string}`[]} */ ([...hashes]);
 }
 
 export default defineConfig({
@@ -111,7 +121,8 @@ export default defineConfig({
       ],
       scriptDirective: {
         // 테마 초기화 스크립트와 GA 설정 스크립트 (둘 다 BaseLayout 의 is:inline)
-        hashes: inlineScriptHashes('./src/layouts/BaseLayout.astro'),
+        // src 안의 모든 .astro 를 훑는다 (파일을 어디에 만들든 따라오도록).
+        hashes: inlineScriptHashes('./src/'),
         resources: [
           "'self'",
           // Cloudflare Web Analytics 비컨
