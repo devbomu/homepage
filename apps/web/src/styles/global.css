@@ -125,4 +125,45 @@
   img {
     @apply rounded-xl;
   }
+
+  /*
+   * 알림 상자 (`> [!NOTE]`). 종류별 색은 테마 토큰으로만 쓴다 —
+   * winter 에서 흐린 색이 dracula 에서는 밝아지므로, 글자색까지 종류 색으로
+   * 칠하면 한쪽 테마에서 반드시 읽기 어려워진다. 테두리와 옅은 배경만 칠하고
+   * 제목은 본문 색 + 이모지로 구분한다.
+   */
+  .md-alert {
+    @apply bg-base-200/60 my-5 rounded-lg border-l-4 px-4 py-3;
+    > :last-child {
+      @apply mb-0;
+    }
+    > :first-child {
+      @apply mt-0;
+    }
+  }
+
+  .md-alert-title {
+    @apply mt-0 mb-1 flex items-center gap-1.5 text-sm font-semibold not-italic;
+  }
+
+  .md-alert-note {
+    @apply border-primary bg-primary/10;
+  }
+  .md-alert-tip {
+    @apply border-success bg-success/10;
+  }
+  .md-alert-important {
+    @apply border-secondary bg-secondary/10;
+  }
+  .md-alert-warning {
+    @apply border-warning bg-warning/20;
+  }
+  .md-alert-caution {
+    @apply border-error bg-error/10;
+  }
+
+  /* 형광펜 (`==중요==`). */
+  mark {
+    @apply bg-warning/50 text-base-content rounded px-1 py-0.5;
+  }
 }

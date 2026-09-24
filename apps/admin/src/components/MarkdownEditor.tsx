@@ -11,7 +11,7 @@ import { Loading } from './ui';
  * 공개 화면은 그것을 서버에서 렌더하므로, 편집기가 HTML 을 만들기 시작하면
  * 원본과 렌더 결과가 갈라진다. 대신 손이 덜 가도록 세 가지를 붙였다.
  *
- *  - 자주 쓰는 표기를 끼워 넣는 도구 모음 (선택 영역을 감싸거나 줄머리에 붙인다)
+ *  - 자주 쓰는 표기를 끼워 넣는 도구 모음
  *  - Cmd/Ctrl + B / I / K 단축키
  *  - 목록·인용 안에서 Enter 를 치면 다음 줄에 같은 표기를 이어준다
  *
@@ -29,8 +29,15 @@ interface Props {
 }
 
 type Action =
+  /** 선택한 글자를 앞뒤로 감싼다. */
   | { kind: 'wrap'; before: string; after: string; placeholder: string }
-  | { kind: 'line'; prefix: string; placeholder: string };
+  /** 선택한 줄들의 머리에 표기를 붙인다. */
+  | { kind: 'line'; prefix: string; placeholder: string }
+  /**
+   * 여러 줄짜리 덩어리를 통째로 끼워 넣는다.
+   * select 는 끼워 넣은 글자 안에서 선택할 구간이다.
+   */
+  | { kind: 'block'; text: string; select?: [number, number] };
 
 interface Tool {
   label: string;
@@ -38,71 +45,107 @@ interface Tool {
   action: Action;
 }
 
-const TOOLS: Tool[] = [
-  {
-    label: 'H2',
-    title: '제목 (## )',
-    action: { kind: 'line', prefix: '## ', placeholder: '제목' },
-  },
-  {
-    label: 'H3',
-    title: '작은 제목 (### )',
-    action: { kind: 'line', prefix: '### ', placeholder: '작은 제목' },
-  },
-  {
-    label: 'B',
-    title: '굵게 (Cmd/Ctrl + B)',
-    action: { kind: 'wrap', before: '**', after: '**', placeholder: '굵게' },
-  },
-  {
-    label: 'I',
-    title: '기울임 (Cmd/Ctrl + I)',
-    action: { kind: 'wrap', before: '_', after: '_', placeholder: '기울임' },
-  },
-  {
-    label: '취소선',
-    title: '취소선',
-    action: { kind: 'wrap', before: '~~', after: '~~', placeholder: '취소선' },
-  },
-  {
-    label: '링크',
-    title: '링크 (Cmd/Ctrl + K)',
-    action: { kind: 'wrap', before: '[', after: '](https://)', placeholder: '링크 글자' },
-  },
-  {
-    label: '이미지',
-    title: '이미지. 주소는 미디어 화면에서 복사합니다',
-    action: { kind: 'wrap', before: '![', after: '](https://)', placeholder: '대체 텍스트' },
-  },
-  {
-    label: '코드',
-    title: '인라인 코드',
-    action: { kind: 'wrap', before: '`', after: '`', placeholder: 'code' },
-  },
-  {
-    label: '코드블록',
-    title: '코드 블록',
-    action: { kind: 'wrap', before: '```ts\n', after: '\n```', placeholder: 'const x = 1;' },
-  },
-  {
-    label: '목록',
-    title: '글머리 기호 목록',
-    action: { kind: 'line', prefix: '- ', placeholder: '항목' },
-  },
-  {
-    label: '번호',
-    title: '번호 목록',
-    action: { kind: 'line', prefix: '1. ', placeholder: '항목' },
-  },
-  {
-    label: '인용',
-    title: '인용문',
-    action: { kind: 'line', prefix: '> ', placeholder: '인용' },
-  },
+/** 표 뼈대. 첫 머리칸을 선택해 두어 바로 고쳐 쓸 수 있게 한다. */
+const TABLE = ['| 항목 | 설명 |', '| --- | --- |', '|  |  |'].join('\n');
+
+const GROUPS: Tool[][] = [
+  [
+    { label: 'H2', title: '제목', action: { kind: 'line', prefix: '## ', placeholder: '제목' } },
+    {
+      label: 'H3',
+      title: '작은 제목',
+      action: { kind: 'line', prefix: '### ', placeholder: '작은 제목' },
+    },
+  ],
+  [
+    {
+      label: 'B',
+      title: '굵게 (Cmd/Ctrl + B)',
+      action: { kind: 'wrap', before: '**', after: '**', placeholder: '굵게' },
+    },
+    {
+      label: 'I',
+      title: '기울임 (Cmd/Ctrl + I)',
+      action: { kind: 'wrap', before: '_', after: '_', placeholder: '기울임' },
+    },
+    {
+      label: 'S',
+      title: '취소선',
+      action: { kind: 'wrap', before: '~~', after: '~~', placeholder: '취소선' },
+    },
+    {
+      label: '형광펜',
+      title: '형광펜으로 강조합니다',
+      action: { kind: 'wrap', before: '==', after: '==', placeholder: '중요' },
+    },
+    {
+      label: '코드',
+      title: '인라인 코드',
+      action: { kind: 'wrap', before: '`', after: '`', placeholder: 'code' },
+    },
+  ],
+  [
+    {
+      label: '목록',
+      title: '글머리 기호 목록',
+      action: { kind: 'line', prefix: '- ', placeholder: '항목' },
+    },
+    {
+      label: '번호',
+      title: '번호 목록',
+      action: { kind: 'line', prefix: '1. ', placeholder: '항목' },
+    },
+    {
+      label: '체크',
+      title: '체크박스 목록',
+      action: { kind: 'line', prefix: '- [ ] ', placeholder: '할 일' },
+    },
+    { label: '인용', title: '인용문', action: { kind: 'line', prefix: '> ', placeholder: '인용' } },
+  ],
+  [
+    {
+      label: '링크',
+      title: '링크 (Cmd/Ctrl + K)',
+      action: { kind: 'wrap', before: '[', after: '](https://)', placeholder: '링크 글자' },
+    },
+    {
+      label: '이미지',
+      title: '이미지. 주소는 미디어 화면에서 복사합니다',
+      action: { kind: 'wrap', before: '![', after: '](https://)', placeholder: '대체 텍스트' },
+    },
+    {
+      label: '표',
+      title: '표 뼈대를 넣습니다',
+      action: { kind: 'block', text: TABLE, select: [2, 4] },
+    },
+    {
+      label: '코드블록',
+      title: '코드 블록',
+      action: { kind: 'wrap', before: '```ts\n', after: '\n```', placeholder: 'const x = 1;' },
+    },
+    { label: '구분선', title: '가로줄', action: { kind: 'block', text: '---' } },
+  ],
 ];
 
+/**
+ * 알림 상자. 종류가 다섯이라 버튼으로 늘어놓으면 도구 모음이 너무 길어진다.
+ * 색은 공개 화면에서 종류별로 붙는다.
+ */
+const ALERTS = [
+  { kind: 'NOTE', icon: '📘', label: '참고' },
+  { kind: 'TIP', icon: '💡', label: '팁' },
+  { kind: 'IMPORTANT', icon: '❗', label: '중요' },
+  { kind: 'WARNING', icon: '⚠️', label: '주의' },
+  { kind: 'CAUTION', icon: '🛑', label: '경고' },
+] as const;
+
+function alertAction(kind: string): Action {
+  const text = `> [!${kind}]\n> 내용`;
+  return { kind: 'block', text, select: [text.length - 2, text.length] };
+}
+
 /** 목록·인용 줄의 머리 표기. Enter 를 쳤을 때 다음 줄에 이어 붙인다. */
-const LIST_LINE = /^(\s*)(?:([-*+])|(\d+)\.|(>))\s+/;
+const LIST_LINE = /^(\s*)(?:- \[[ xX]\]|([-*+])|(\d+)\.|(>))\s+/;
 
 export default function MarkdownEditor({
   value,
@@ -144,12 +187,30 @@ export default function MarkdownEditor({
     [onChange],
   );
 
+  /*
+   * 마지막 커서 위치.
+   *
+   * 알림 드롭다운은 열리면서 포커스를 가져간다. 도구 모음의 다른 버튼들은
+   * mousedown 에서 preventDefault 로 포커스 이동을 막지만, 드롭다운은 포커스를
+   * 받아야 열리므로 그럴 수 없다. 그래서 포커스가 넘어가기 직전인 mousedown 에서
+   * 커서 자리를 적어 둔다. blur 에 기대지 않는 이유는, 창이 뒤에 있을 때
+   * 브라우저가 focus/blur 를 건너뛰는 경우가 있기 때문이다.
+   */
+  const lastSelection = useRef<[number, number]>([0, 0]);
+
+  const rememberSelection = () => {
+    const node = ref.current;
+    if (node) lastSelection.current = [node.selectionStart, node.selectionEnd];
+  };
+
   const run = useCallback(
     (action: Action) => {
       const node = ref.current;
       if (!node) return;
 
-      const { selectionStart: start, selectionEnd: end } = node;
+      const focused = document.activeElement === node;
+      const start = focused ? node.selectionStart : lastSelection.current[0];
+      const end = focused ? node.selectionEnd : lastSelection.current[1];
       const selected = value.slice(start, end);
 
       if (action.kind === 'wrap') {
@@ -157,6 +218,22 @@ export default function MarkdownEditor({
         const next = `${value.slice(0, start)}${action.before}${inner}${action.after}${value.slice(end)}`;
         const from = start + action.before.length;
         apply(next, from, from + inner.length);
+        return;
+      }
+
+      if (action.kind === 'block') {
+        // 덩어리는 항상 빈 줄에서 시작하게 한다. 문단 중간에 표를 넣으면
+        // 마크다운이 그 문단의 일부로 읽어 버린다.
+        const before = value.slice(0, start);
+        const lead =
+          before === '' || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+        const rest = value.slice(end);
+        const tail = rest.startsWith('\n') ? '\n' : '\n\n';
+        const inserted = `${lead}${action.text}${tail}`;
+        const next = `${before}${inserted}${rest}`;
+        const base = start + lead.length;
+        const [from, to] = action.select ?? [action.text.length, action.text.length];
+        apply(next, base + from, base + to);
         return;
       }
 
@@ -170,7 +247,8 @@ export default function MarkdownEditor({
         .join('\n');
 
       const next = `${value.slice(0, lineStart)}${prefixed}${value.slice(lineEnd)}`;
-      apply(next, lineStart, lineStart + prefixed.length);
+      // 표기는 빼고 글자만 선택한다. `- ` 까지 잡혀 있으면 바로 고쳐 쓸 수 없다.
+      apply(next, lineStart + action.prefix.length, lineStart + prefixed.length);
     },
     [apply, value],
   );
@@ -180,12 +258,9 @@ export default function MarkdownEditor({
 
     if (mod) {
       const key = event.key.toLowerCase();
-      const tool = TOOLS.find(
-        (t) =>
-          (key === 'b' && t.label === 'B') ||
-          (key === 'i' && t.label === 'I') ||
-          (key === 'k' && t.label === '링크'),
-      );
+      const shortcut = key === 'b' ? 'B' : key === 'i' ? 'I' : key === 'k' ? '링크' : null;
+      if (!shortcut) return;
+      const tool = GROUPS.flat().find((t) => t.label === shortcut);
       if (tool) {
         event.preventDefault();
         run(tool.action);
@@ -215,7 +290,15 @@ export default function MarkdownEditor({
     }
 
     const [, indent, bullet, ordered, quote] = match;
-    const marker = bullet ? `${bullet} ` : ordered ? `${Number(ordered) + 1}. ` : quote ? '> ' : '';
+    const marker = match[0].includes('[')
+      ? '- [ ] '
+      : bullet
+        ? `${bullet} `
+        : ordered
+          ? `${Number(ordered) + 1}. `
+          : quote
+            ? '> '
+            : '';
     const insert = `\n${indent ?? ''}${marker}`;
     const next = `${value.slice(0, start)}${insert}${value.slice(start)}`;
     apply(next, start + insert.length, start + insert.length);
@@ -243,20 +326,60 @@ export default function MarkdownEditor({
       </div>
 
       {!showPreview && (
-        <div className="border-base-300 bg-base-200/40 flex flex-wrap gap-1 rounded-lg border p-1">
-          {TOOLS.map((tool) => (
-            <button
-              key={tool.label}
-              type="button"
-              className="btn btn-ghost btn-xs font-normal"
-              title={tool.title}
-              // 버튼을 눌러도 편집 영역의 선택이 풀리지 않게 한다.
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => run(tool.action)}
-            >
-              {tool.label}
-            </button>
+        <div
+          className="border-base-300 bg-base-200/40 flex flex-wrap items-center gap-1 rounded-lg border p-1"
+          role="toolbar"
+          aria-label="마크다운 도구"
+        >
+          {GROUPS.map((group, index) => (
+            <div key={group[0]!.label} className="flex items-center gap-1">
+              {index > 0 && <span className="bg-base-300 mx-1 h-4 w-px" aria-hidden="true" />}
+              {group.map((tool) => (
+                <button
+                  key={tool.label}
+                  type="button"
+                  className="btn btn-ghost btn-xs font-normal"
+                  title={tool.title}
+                  // 버튼을 눌러도 편집 영역의 선택이 풀리지 않게 한다.
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => run(tool.action)}
+                >
+                  {tool.label}
+                </button>
+              ))}
+            </div>
           ))}
+
+          <span className="bg-base-300 mx-1 h-4 w-px" aria-hidden="true" />
+          <div className="dropdown">
+            <button
+              type="button"
+              tabIndex={0}
+              className="btn btn-ghost btn-xs font-normal"
+              title="색이 들어간 알림 상자"
+              // 포커스가 넘어가기 전에 커서 자리를 적어 둔다.
+              onMouseDown={rememberSelection}
+            >
+              알림 ▾
+            </button>
+            <ul
+              tabIndex={0}
+              className="dropdown-content menu bg-base-100 rounded-box z-10 w-32 p-1 shadow"
+            >
+              {ALERTS.map((alert) => (
+                <li key={alert.kind}>
+                  <button
+                    type="button"
+                    className="text-xs"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => run(alertAction(alert.kind))}
+                  >
+                    <span aria-hidden="true">{alert.icon}</span> {alert.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 
@@ -278,6 +401,8 @@ export default function MarkdownEditor({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
+          onSelect={rememberSelection}
+          onBlur={rememberSelection}
           placeholder={placeholder}
           spellCheck={false}
         />

@@ -1,4 +1,4 @@
-import { Marked } from 'marked';
+import { Marked, type TokenizerAndRendererExtension, type Tokens } from 'marked';
 
 /**
  * 마크다운 렌더링.
@@ -41,6 +41,87 @@ function sanitizeUrl(href: string | null | undefined): string | null {
   return normalized.startsWith('//') ? null : normalized;
 }
 
+/**
+ * 알림 상자. GitHub 이 쓰는 `> [!NOTE]` 문법을 그대로 받는다.
+ *
+ * 색을 넣으려면 원시 HTML 이 필요한데 그건 전부 이스케이프하는 것이
+ * 이 렌더러의 안전 불변식이다. 대신 종류를 정해진 목록에서만 고르게 해서
+ * 클래스 이름을 서버가 만든다 — 사용자가 쓴 문자열이 클래스에 들어가지 않는다.
+ */
+const ALERTS = {
+  note: { label: '참고', icon: '📘' },
+  tip: { label: '팁', icon: '💡' },
+  important: { label: '중요', icon: '❗' },
+  warning: { label: '주의', icon: '⚠️' },
+  caution: { label: '경고', icon: '🛑' },
+} as const;
+
+type AlertKind = keyof typeof ALERTS;
+
+interface AlertToken extends Tokens.Generic {
+  type: 'alert';
+  kind: AlertKind;
+  tokens: Tokens.Generic[];
+}
+
+const alertExtension: TokenizerAndRendererExtension = {
+  name: 'alert',
+  level: 'block',
+  start(src) {
+    return src.match(/^ {0,3}> *\[!/m)?.index;
+  },
+  tokenizer(src) {
+    const match =
+      /^ {0,3}> *\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\] *(?:\n|$)((?: {0,3}>.*(?:\n|$))*)/i.exec(
+        src,
+      );
+    if (!match) return undefined;
+
+    const kind = match[1]!.toLowerCase() as AlertKind;
+    // 인용 표시를 떼어내고 안쪽을 다시 블록으로 파싱한다.
+    const body = (match[2] ?? '').replace(/^ {0,3}> ?/gm, '');
+
+    return {
+      type: 'alert',
+      raw: match[0],
+      kind,
+      tokens: this.lexer.blockTokens(body, []),
+    } as AlertToken;
+  },
+  renderer(token) {
+    const { kind, tokens } = token as AlertToken;
+    const { label, icon } = ALERTS[kind];
+    return `<div class="md-alert md-alert-${kind}"><p class="md-alert-title"><span aria-hidden="true">${icon}</span> ${label}</p>${this.parser.parse(tokens ?? [])}</div>`;
+  },
+};
+
+/**
+ * 형광펜. `==중요==` 를 <mark> 로 바꾼다.
+ *
+ * 표준 마크다운은 아니지만 여러 렌더러가 쓰는 관용 표기이고, 지원하지 않는
+ * 곳에서는 `==` 가 글자로 보일 뿐이라 내용을 잃지 않는다.
+ */
+const highlightExtension: TokenizerAndRendererExtension = {
+  name: 'highlight',
+  level: 'inline',
+  start(src) {
+    const index = src.indexOf('==');
+    return index === -1 ? undefined : index;
+  },
+  tokenizer(src) {
+    const match = /^==(?=[^\s=])([\s\S]*?[^\s=])==/.exec(src);
+    if (!match) return undefined;
+    return {
+      type: 'highlight',
+      raw: match[0],
+      tokens: this.lexer.inlineTokens(match[1]!),
+    };
+  },
+  renderer(token) {
+    return `<mark>${this.parser.parseInline(token.tokens ?? [])}</mark>`;
+  },
+};
+
 const marked = new Marked({
   gfm: true,
   breaks: false,
@@ -71,7 +152,7 @@ const marked = new Marked({
       return `<img src="${escapeHtml(safe)}" alt="${escapeHtml(text ?? '')}"${titleAttr} loading="lazy" decoding="async">`;
     },
   },
-});
+}).use({ extensions: [alertExtension, highlightExtension] });
 
 export function escapeHtml(input: string): string {
   return input

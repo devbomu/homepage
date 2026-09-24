@@ -143,3 +143,76 @@ describe('stripMarkdown / autoSummary', () => {
     expect(autoSummary('짧은 소개글')).toBe('짧은 소개글');
   });
 });
+
+describe('알림 상자 (> [!NOTE])', () => {
+  it('종류별로 클래스를 붙인다', () => {
+    const html = renderMarkdown('> [!WARNING]\n> 조심하세요.');
+    expect(html).toContain('class="md-alert md-alert-warning"');
+    expect(html).toContain('주의');
+    expect(html).toContain('<p>조심하세요.</p>');
+  });
+
+  it('안쪽도 마크다운으로 읽는다', () => {
+    const html = renderMarkdown('> [!TIP]\n> **굵게** 와 [링크](https://example.com)');
+    expect(html).toContain('<strong>굵게</strong>');
+    expect(html).toContain('href="https://example.com"');
+  });
+
+  it('모르는 종류는 그냥 인용문이다', () => {
+    const html = renderMarkdown('> [!EVIL]\n> 없는 종류');
+    expect(html).toContain('<blockquote>');
+    expect(html).not.toContain('md-alert');
+  });
+
+  it('안쪽 HTML 도 이스케이프한다', () => {
+    const html = renderMarkdown('> [!NOTE]\n> <script>alert(1)</script>');
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;script&gt;');
+  });
+
+  it('클래스 이름은 서버가 만든 값만 들어간다', () => {
+    // 종류는 정규식이 고른 다섯 가지 중 하나다. 사용자가 쓴 문자열이 클래스에 닿지 않는다.
+    const html = renderMarkdown('> [!NOTE"onload=x]\n> 내용');
+    expect(html).not.toContain('md-alert');
+    // 글자로는 남되 따옴표가 이스케이프되어 속성이 될 수 없다.
+    expect(html).not.toContain('"onload');
+    expect(html).toContain('&quot;onload');
+  });
+});
+
+describe('형광펜 (==중요==)', () => {
+  it('mark 로 감싼다', () => {
+    expect(renderMarkdown('여기가 ==중요== 합니다')).toContain('<mark>중요</mark>');
+  });
+
+  it('안쪽도 마크다운으로 읽는다', () => {
+    expect(renderMarkdown('==**굵고 중요**==')).toContain(
+      '<mark><strong>굵고 중요</strong></mark>',
+    );
+  });
+
+  it('공백이 붙으면 형광펜이 아니다', () => {
+    const html = renderMarkdown('== 공백 ==');
+    expect(html).not.toContain('<mark>');
+  });
+
+  it('안쪽 HTML 도 이스케이프한다', () => {
+    const html = renderMarkdown('==<img src=x onerror=alert(1)>==');
+    expect(html).not.toContain('<img');
+    expect(html).toContain('&lt;img');
+  });
+});
+
+describe('GFM 표와 체크목록', () => {
+  it('표를 렌더한다', () => {
+    const html = renderMarkdown('| A | B |\n| --- | --- |\n| 1 | 2 |');
+    expect(html).toContain('<table>');
+    expect(html).toContain('<th>A</th>');
+  });
+
+  it('체크목록을 렌더한다', () => {
+    const html = renderMarkdown('- [ ] 할 일\n- [x] 끝난 일');
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain('checked=""');
+  });
+});
