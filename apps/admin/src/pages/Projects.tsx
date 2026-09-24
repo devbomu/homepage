@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { adminApi } from '../lib/api';
 import type { Project } from '../lib/types';
+import SlugField from '../components/SlugField';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { Card, EmptyState, ErrorNotice, Field, Loading, PageHeader } from '../components/ui';
 
@@ -171,14 +172,7 @@ function ProjectForm({
             onChange={(e) => set('title', e.target.value)}
           />
         </Field>
-        <Field label="주소(slug)" hint="비워두면 제목에서 자동 생성합니다.">
-          <input
-            className="input input-bordered input-sm w-full font-mono"
-            value={form.slug}
-            placeholder="자동 생성"
-            onChange={(e) => set('slug', e.target.value)}
-          />
-        </Field>
+        <SlugField value={form.slug} onChange={(next) => set('slug', next)} source={form.title} />
       </div>
 
       <Field label="한 줄 소개">

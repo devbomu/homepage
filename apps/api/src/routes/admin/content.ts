@@ -9,7 +9,7 @@ import { audit } from '../../lib/audit';
 import { ApiError } from '../../lib/errors';
 import { renderMarkdown } from '../../lib/markdown';
 import { created, noContent, ok } from '../../lib/response';
-import { slugify } from '../../lib/slug';
+import { resolveSlug, slugify } from '../../lib/slug';
 
 export const adminContent = new Hono<AppEnv>();
 
@@ -54,7 +54,7 @@ adminContent.post('/pages', zValidator('json', pageInput), async (c) => {
   const [row] = await db
     .insert(pages)
     .values({
-      slug: slugify(input.slug || input.title),
+      slug: resolveSlug(input.slug),
       title: input.title,
       content: input.content ?? '',
       contentHtml: renderMarkdown(input.content ?? ''),
@@ -160,7 +160,7 @@ adminContent.post('/projects', zValidator('json', projectInput), async (c) => {
   const [row] = await db
     .insert(projects)
     .values({
-      slug: slugify(input.slug || input.title),
+      slug: resolveSlug(input.slug),
       title: input.title,
       summary: input.summary ?? null,
       description: input.description ?? '',

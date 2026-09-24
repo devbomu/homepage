@@ -8,7 +8,7 @@ import type { AppEnv } from '../../env';
 import { audit } from '../../lib/audit';
 import { ApiError } from '../../lib/errors';
 import { created, noContent, ok } from '../../lib/response';
-import { slugify, uniqueSlug } from '../../lib/slug';
+import { resolveSlug, slugify, uniqueSlug } from '../../lib/slug';
 import {
   createCategory,
   deleteCategory,
@@ -41,7 +41,7 @@ adminTaxonomy.post('/categories', zValidator('json', categoryInput), async (c) =
 
   const row = await createCategory(db, {
     parentId: input.parentId ?? null,
-    slug: slugify(input.slug || input.name),
+    slug: resolveSlug(input.slug),
     name: input.name,
     description: input.description ?? null,
     sortOrder: input.sortOrder,
@@ -100,7 +100,7 @@ adminTaxonomy.post('/tags', zValidator('json', tagInput), async (c) => {
   const db = createDb(c.env.DB);
   const input = c.req.valid('json');
 
-  const slug = await uniqueSlug(slugify(input.slug || input.name), async (candidate) => {
+  const slug = await uniqueSlug(resolveSlug(input.slug), async (candidate) => {
     const [row] = await db
       .select({ id: tags.id })
       .from(tags)
@@ -170,7 +170,7 @@ adminTaxonomy.post('/series', zValidator('json', seriesInput), async (c) => {
   const db = createDb(c.env.DB);
   const input = c.req.valid('json');
 
-  const slug = await uniqueSlug(slugify(input.slug || input.title), async (candidate) => {
+  const slug = await uniqueSlug(resolveSlug(input.slug), async (candidate) => {
     const [row] = await db
       .select({ id: series.id })
       .from(series)

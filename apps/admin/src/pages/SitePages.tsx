@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { adminApi } from '../lib/api';
 import { POST_STATUSES, POST_STATUS_LABEL, type PostStatus, type SitePage } from '../lib/types';
+import SlugField from '../components/SlugField';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { Card, EmptyState, ErrorNotice, Field, Loading, PageHeader } from '../components/ui';
 
@@ -151,15 +152,7 @@ function PageForm({
             onChange={(e) => setTitle(e.target.value)}
           />
         </Field>
-        <Field label="주소(slug)" hint="비워두면 제목에서 자동 생성합니다.">
-          <input
-            className="input input-bordered input-sm w-full font-mono"
-            value={slug}
-            maxLength={200}
-            placeholder="자동 생성"
-            onChange={(e) => setSlug(e.target.value)}
-          />
-        </Field>
+        <SlugField value={slug} onChange={setSlug} source={title} />
       </div>
 
       <MarkdownEditor value={content} onChange={setContent} minHeight="min-h-64" />

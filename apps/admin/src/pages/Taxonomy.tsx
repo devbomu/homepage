@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 
 import { adminApi } from '../lib/api';
 import type { CategoryNode } from '../lib/types';
+import SlugField from '../components/SlugField';
 import { Card, EmptyState, ErrorNotice, Field, Loading, PageHeader } from '../components/ui';
 
 type Tab = 'categories' | 'tags' | 'series';
@@ -204,15 +205,7 @@ function CategoryForm({
           />
         </Field>
 
-        <Field label="주소(slug)" hint="비워두면 이름에서 자동 생성합니다.">
-          <input
-            className="input input-bordered input-sm w-full font-mono"
-            value={slug}
-            maxLength={200}
-            placeholder="자동 생성"
-            onChange={(e) => setSlug(e.target.value)}
-          />
-        </Field>
+        <SlugField value={slug} onChange={setSlug} source={name} sourceLabel="이름" />
 
         <Field label="상위 카테고리" hint="최대 6단계까지 중첩할 수 있습니다.">
           <select

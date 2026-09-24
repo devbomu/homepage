@@ -1,4 +1,4 @@
-import json, urllib.parse, urllib.request, urllib.error, sys, uuid
+import json, re, urllib.parse, urllib.request, urllib.error, sys, uuid
 
 BASE = "http://localhost:8787"
 UA = f"namsu-admin-test/{uuid.uuid4()}"
@@ -60,7 +60,15 @@ s, b = call("POST", "/v1/admin/posts", {
 check("글 생성", s == 201, f"{s} {b}")
 post_id = b["data"]["id"] if s == 201 else None
 slug = b["data"]["slug"] if s == 201 else ""
-check("한글 제목에서 slug 자동 생성", slug == "hono와-d1로-만든-블로그-api", slug)
+# 주소를 비우면 제목이 아니라 임의 값으로 만든다 (한글 제목이 주소에 그대로
+# 들어가면 링크에 퍼센트 인코딩이 길게 붙는다).
+check("주소를 비우면 임의 주소가 붙는다", re.fullmatch(r"[0-9a-z]{10}", slug) is not None, slug)
+
+s2, b2 = call("POST", "/v1/admin/posts", {
+    "title": "주소를 직접 지정", "slug": "My_Custom Slug", "content": "본문", "status": "draft",
+})
+check("주소를 주면 정규화해서 쓴다", s2 == 201 and b2["data"]["slug"] == "my-custom-slug",
+      f"{s2} {b2.get('data', {}).get('slug')}")
 
 s, b = call("GET", f"/v1/admin/posts/{post_id}")
 d = b["data"] if s == 200 else {}

@@ -13,6 +13,7 @@ import {
   type PostStatus,
   type ProtectedListing,
 } from '../lib/types';
+import SlugField from '../components/SlugField';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { Card, ErrorNotice, Field, Loading, PageHeader } from '../components/ui';
 
@@ -223,18 +224,11 @@ export default function PostEditor() {
               />
             </Field>
 
-            <Field
-              label="주소(slug)"
-              hint="비워두면 제목에서 자동으로 만듭니다. 한글도 쓸 수 있습니다."
-            >
-              <input
-                className="input input-bordered input-sm w-full font-mono"
-                value={draft.slug}
-                maxLength={200}
-                placeholder="자동 생성"
-                onChange={(e) => update('slug', e.target.value)}
-              />
-            </Field>
+            <SlugField
+              value={draft.slug}
+              onChange={(next) => update('slug', next)}
+              source={draft.title}
+            />
 
             <Field
               label="요약"

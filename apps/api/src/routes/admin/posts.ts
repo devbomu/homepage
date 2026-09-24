@@ -11,7 +11,7 @@ import { analyzeContent, autoSummary, renderMarkdown } from '../../lib/markdown'
 import { hashPassword } from '../../lib/password';
 import { decodeCursor, parseLimit } from '../../lib/pagination';
 import { created, noContent, ok, paged } from '../../lib/response';
-import { slugify, uniqueSlug } from '../../lib/slug';
+import { resolveSlug, slugify, uniqueSlug } from '../../lib/slug';
 import { getAdminPost, listAdminPosts, replacePostTags, softDeletePost } from '../../queries/posts';
 
 export const adminPosts = new Hono<AppEnv>();
@@ -146,7 +146,7 @@ adminPosts.post('/', validate, async (c) => {
   if (!input.title) throw ApiError.badRequest('제목을 입력해 주세요.');
 
   const content = input.content ?? '';
-  const slug = await uniqueSlug(slugify(input.slug || input.title), (s) => slugTaken(db, s));
+  const slug = await uniqueSlug(resolveSlug(input.slug), (s) => slugTaken(db, s));
   const tagIds = input.tagIds ?? [];
   await assertTagsExist(db, tagIds);
 
