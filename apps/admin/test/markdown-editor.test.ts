@@ -2,10 +2,23 @@ import { describe, expect, it } from 'vitest';
 
 import { continueList } from '../src/components/MarkdownEditor';
 
-/** 커서를 `|` 로 표시한 문자열을 (글자, 커서) 로 바꾼다. 테스트가 읽히게 하려는 것. */
+/**
+ * 커서를 `|` 로 표시한 문자열을 (글자, 커서) 로 바꾼다. 테스트가 읽히게 하려는 것.
+ *
+ * 표시는 정확히 하나여야 한다. 이 에디터에는 표 삽입 기능이 있어서 언젠가
+ * `| 머리 | 글 |` 같은 본문을 테스트하게 되는데, 그때 본문의 `|` 를 커서로
+ * 착각하면 엉뚱한 위치를 가리킨다. 그 고장은 조용해서 알아채기 어렵다.
+ * 그래서 개수를 세어 미리 세운다.
+ */
 function at(marked: string): [string, number] {
   const caret = marked.indexOf('|');
-  return [marked.replace('|', ''), caret];
+  if (caret === -1 || marked.indexOf('|', caret + 1) !== -1) {
+    throw new Error(`커서 표시(|)가 정확히 하나여야 합니다: ${JSON.stringify(marked)}`);
+  }
+  // 위치를 이미 알고 있으니 잘라 붙인다.
+  // replace('|', '') 는 "첫 번째 것만 바꾼다" 는 애매한 동작에 기대는 셈이라,
+  // 표시가 둘 이상일 때 무엇을 지울지가 코드에 드러나지 않는다.
+  return [marked.slice(0, caret) + marked.slice(caret + 1), caret];
 }
 
 /** 결과를 다시 `|` 표기로 돌려 비교한다. */
