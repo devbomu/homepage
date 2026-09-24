@@ -124,7 +124,16 @@ const highlightExtension: TokenizerAndRendererExtension = {
 
 const marked = new Marked({
   gfm: true,
-  breaks: false,
+  /*
+   * 줄바꿈 한 번을 그대로 <br> 로 낸다.
+   *
+   * 마크다운 표준은 한 문단 안의 줄바꿈을 공백으로 본다. 원문을 적당히 접어 써도
+   * 결과가 같게 하려는 규칙인데, 한국어로 글을 쓸 때는 "엔터를 쳤는데 안 먹네" 가
+   * 매번 걸린다. GitHub 의 댓글·이슈도 같은 이유로 이 설정을 쓴다.
+   *
+   * 대가: 원문에서 긴 줄을 보기 좋게 접을 수 없다. 접으면 그대로 줄바꿈이 된다.
+   */
+  breaks: true,
   renderer: {
     html({ raw }) {
       return escapeHtml(raw);

@@ -216,3 +216,26 @@ describe('GFM 표와 체크목록', () => {
     expect(html).toContain('checked=""');
   });
 });
+
+describe('줄바꿈 (breaks)', () => {
+  it('엔터 한 번이 그대로 줄바꿈이 된다', () => {
+    // 마크다운 표준은 공백으로 잇지만, 한국어로 글 쓸 때는 이쪽이 직관적이다.
+    expect(renderMarkdown('첫 줄\n둘째 줄')).toBe('<p>첫 줄<br>둘째 줄</p>\n');
+  });
+
+  it('빈 줄은 여전히 문단을 나눈다', () => {
+    expect(renderMarkdown('첫 줄\n\n둘째 줄')).toBe('<p>첫 줄</p>\n<p>둘째 줄</p>\n');
+  });
+
+  it('빈 줄을 여러 개 넣어도 문단은 하나만 나뉜다', () => {
+    expect(renderMarkdown('첫 줄\n\n\n\n둘째 줄')).toBe('<p>첫 줄</p>\n<p>둘째 줄</p>\n');
+  });
+
+  it('목록은 줄마다 항목이 되지 <br> 가 되지 않는다', () => {
+    expect(renderMarkdown('- 하나\n- 둘')).toContain('<li>하나</li>');
+  });
+
+  it('알림 상자 안에서도 줄바꿈이 먹는다', () => {
+    expect(renderMarkdown('> [!NOTE]\n> 첫 줄\n> 둘째 줄')).toContain('첫 줄<br>둘째 줄');
+  });
+});
