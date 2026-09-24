@@ -143,19 +143,30 @@ publicPosts.post(
     if (!post.passwordHash) throw ApiError.badRequest('비밀글이 아닙니다.');
 
     const secret = c.env.VISITOR_HASH_SALT;
-    const passed = token
-      ? await verifyUnlockToken(secret, post.id, token)
-      : password != null && (await verifyPassword(password, post.passwordHash));
 
-    if (!passed) {
+    /*
+     * 토큰으로 들어오면 남은 기간을 그대로 쓰고 새로 발급하지 않는다.
+     *
+     * 예전에는 토큰을 낼 때마다 24시간을 새로 줬다. 그러면 하루에 한 번씩만
+     * 들러도 토큰이 영원히 살아 있어서 TTL 이 사실상 없는 것과 같았다.
+     * 이제 24시간은 "비밀번호를 맞힌 시점부터" 의 절대 기한이다.
+     */
+    let issued: { token: string; expiresAt: number };
+
+    if (token) {
+      const expiresAt = await verifyUnlockToken(secret, post.id, post.passwordHash, token);
       // 토큰이 만료된 경우와 비밀번호가 틀린 경우를 구분해 알려줄 이유가 없다.
-      throw ApiError.forbidden('비밀번호가 맞지 않습니다.');
+      if (expiresAt === null) throw ApiError.forbidden('비밀번호가 맞지 않습니다.');
+      issued = { token, expiresAt };
+    } else {
+      const matched = password != null && (await verifyPassword(password, post.passwordHash));
+      if (!matched) throw ApiError.forbidden('비밀번호가 맞지 않습니다.');
+      issued = await issueUnlockToken(secret, post.id, post.passwordHash);
     }
 
     const content = await getProtectedPostContent(db, slug);
     if (!content) throw ApiError.notFound('글을 찾을 수 없습니다.');
 
-    const issued = await issueUnlockToken(secret, post.id);
     c.header('Cache-Control', 'private, no-store');
     return ok(c, { ...content, token: issued.token, expiresAt: issued.expiresAt });
   },

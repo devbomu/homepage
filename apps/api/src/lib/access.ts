@@ -100,10 +100,17 @@ export async function verifyAccessToken(
  * 허용된 관리자인지 확인하는 2차 방어선.
  *
  * Access 정책이 1차 방어선이고, 이건 Access 정책이 잘못 열렸을 때를 대비한 것이다.
- * 서비스 토큰(기계 호출)은 Access 정책에서 이미 걸러지므로 통과시킨다.
+ *
+ * 예전에는 서비스 토큰(common_name 만 있고 email 이 없는 신원)을 그냥 통과시켰다.
+ * "Access 정책이 이미 걸러준다" 는 이유였는데, 이 함수가 존재하는 이유가
+ * 바로 그 Access 정책을 못 믿는 경우를 대비하는 것이라 앞뒤가 맞지 않았다.
+ * 정책이 넓게 열리는 시나리오에서만 뚫리는, 방어선에 뚫린 구멍이었다.
+ *
+ * 지금은 이메일 신원이 없으면 무조건 거부한다. 기계 호출이 필요해지면
+ * 그때 허용 목록(예: ADMIN_SERVICE_TOKENS)을 명시적으로 만들어 붙인다.
  */
 export function isAllowedAdmin(env: Bindings, identity: AdminIdentity): boolean {
-  if (identity.commonName && !identity.email) return true;
+  if (!identity.email) return false;
 
   const allowed = parseList(env.ADMIN_EMAILS).map((e) => e.toLowerCase());
   if (allowed.length === 0) return isDevelopment(env);

@@ -87,7 +87,15 @@ export async function verifyPassword(password: string, stored: string): Promise<
 // 해제 토큰
 // ---------------------------------------------------------------------------
 
-async function sign(secret: string, payload: string): Promise<string> {
+/**
+ * 토큰 서명.
+ *
+ * 서명 대상에 비밀번호 해시를 함께 넣는다. 토큰 안에 담기지는 않고 서명에만
+ * 섞이므로, 관리자가 비밀번호를 바꾸면 이미 발급된 토큰의 서명이 더 이상 맞지 않아
+ * 그 자리에서 전부 무효가 된다. 예전에는 비밀번호를 바꿔도 기존 토큰이
+ * 남은 기간 내내 통해서, 한 번 알았던 사람을 내보낼 방법이 없었다.
+ */
+async function sign(secret: string, payload: string, passwordHash: string): Promise<string> {
   // 솔트를 다른 용도(방문자 해시)와 함께 쓰므로 접두사로 용도를 갈라 둔다.
   const key = await crypto.subtle.importKey(
     'raw',
@@ -96,7 +104,7 @@ async function sign(secret: string, payload: string): Promise<string> {
     false,
     ['sign'],
   );
-  const mac = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  const mac = await crypto.subtle.sign('HMAC', key, encoder.encode(`${payload}\n${passwordHash}`));
   return toBase64(mac);
 }
 
@@ -105,26 +113,38 @@ export interface UnlockToken {
   expiresAt: number;
 }
 
-export async function issueUnlockToken(secret: string, postId: number): Promise<UnlockToken> {
+export async function issueUnlockToken(
+  secret: string,
+  postId: number,
+  passwordHash: string,
+): Promise<UnlockToken> {
   const expiresAt = Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS;
   const payload = `${postId}.${expiresAt}`;
-  return { token: `${payload}.${await sign(secret, payload)}`, expiresAt };
+  return { token: `${payload}.${await sign(secret, payload, passwordHash)}`, expiresAt };
 }
 
-/** 이 토큰이 이 글의 것이고 아직 살아 있으면 true. */
+/**
+ * 이 토큰이 이 글의 것이고 아직 살아 있으면 만료 시각(초)을, 아니면 null 을 준다.
+ *
+ * 만료 시각을 돌려주는 이유: 호출부가 토큰을 새로 발급하지 않고 남은 기간을
+ * 그대로 쓰게 하기 위함이다. 재발급하면 TTL 이 절대 기한이 아니라
+ * 유휴 시간이 되어 버린다.
+ */
 export async function verifyUnlockToken(
   secret: string,
   postId: number,
+  passwordHash: string,
   token: string,
-): Promise<boolean> {
+): Promise<number | null> {
   const parts = token.split('.');
-  if (parts.length !== 3) return false;
+  if (parts.length !== 3) return null;
 
   const [id, exp, signature] = parts as [string, string, string];
-  if (Number(id) !== postId) return false;
+  if (Number(id) !== postId) return null;
 
   const expiresAt = Number(exp);
-  if (!Number.isFinite(expiresAt) || expiresAt < Math.floor(Date.now() / 1000)) return false;
+  if (!Number.isFinite(expiresAt) || expiresAt < Math.floor(Date.now() / 1000)) return null;
 
-  return timingSafeEqual(await sign(secret, `${id}.${exp}`), signature);
+  const expected = await sign(secret, `${id}.${exp}`, passwordHash);
+  return timingSafeEqual(expected, signature) ? expiresAt : null;
 }
