@@ -1,11 +1,12 @@
 import { createDb, pages, POST_STATUSES, projects, siteSettings, type Db } from '@namsu/db';
 import { zValidator } from '@hono/zod-validator';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
 import type { AppEnv } from '../../env';
 import { audit } from '../../lib/audit';
+import { reorderSql } from '../../lib/order';
 import { ApiError } from '../../lib/errors';
 import { renderMarkdown } from '../../lib/markdown';
 import { created, noContent, ok } from '../../lib/response';
@@ -72,6 +73,47 @@ adminContent.get('/pages/:id{[0-9]+}', async (c) => {
   if (!row) throw ApiError.notFound('페이지를 찾을 수 없습니다.');
   return ok(c, row);
 });
+
+/**
+ * PATCH /v1/admin/pages/order — 메뉴에 노출하는 페이지의 순서.
+ * PATCH /v1/admin/projects/order — 프로젝트 목록의 순서.
+ *
+ * 드래그 한 번에 여러 행이 밀리므로 한 문장으로 묶는다 (reorderSql 주석 참고).
+ */
+adminContent.patch(
+  '/pages/order',
+  zValidator('json', z.object({ ids: z.array(z.number().int().positive()).min(1).max(200) })),
+  async (c) => {
+    const db = createDb(c.env.DB);
+    const { ids } = c.req.valid('json');
+
+    const rows = await db.select({ id: pages.id }).from(pages).where(inArray(pages.id, ids));
+    if (rows.length !== ids.length) throw ApiError.badRequest('없는 페이지가 포함되어 있습니다.');
+
+    await db.run(reorderSql('pages', ids));
+    await audit(db, c.get('identity'), 'page.reorder', 'page', ids[0]!, { ids });
+    return noContent(c);
+  },
+);
+
+adminContent.patch(
+  '/projects/order',
+  zValidator('json', z.object({ ids: z.array(z.number().int().positive()).min(1).max(200) })),
+  async (c) => {
+    const db = createDb(c.env.DB);
+    const { ids } = c.req.valid('json');
+
+    const rows = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(inArray(projects.id, ids));
+    if (rows.length !== ids.length) throw ApiError.badRequest('없는 프로젝트가 포함되어 있습니다.');
+
+    await db.run(reorderSql('projects', ids));
+    await audit(db, c.get('identity'), 'project.reorder', 'project', ids[0]!, { ids });
+    return noContent(c);
+  },
+);
 
 adminContent.post('/pages', zValidator('json', pageInput), async (c) => {
   const db = createDb(c.env.DB);

@@ -243,6 +243,49 @@ check("되살리면 댓글 수도 돌아온다", s == 200 and b["data"]["comment
 s, b = call("POST", f"/v1/admin/comments/{cid}/restore")
 check("이미 살아 있는 댓글은 404", s == 404, f"{s} {b}")
 
+print("\n=== 끌어서 순서 바꾸기 ===")
+# 순서는 목록 화면에서 정한다. 드래그 한 번에 여러 행이 밀리므로 한 번에 보낸다.
+s, b = call("GET", "/v1/admin/categories")
+roots = [n["id"] for n in (b["data"] if s == 200 else [])]
+check("루트 카테고리가 둘 이상", len(roots) >= 2, str(roots))
+
+reversed_roots = list(reversed(roots))
+s, b = call("PATCH", "/v1/admin/categories/order", {"ids": reversed_roots})
+check("카테고리 순서 변경 204", s == 204, f"{s} {b}")
+s, b = call("GET", "/v1/admin/categories")
+check("바뀐 차례대로 돌아온다", [n["id"] for n in b["data"]] == reversed_roots,
+      str([n["id"] for n in b["data"]]))
+check("순서 값이 0부터 매겨진다", [n["sortOrder"] for n in b["data"]] == list(range(len(roots))),
+      str([n["sortOrder"] for n in b["data"]]))
+
+# 자식이 있는 카테고리를 찾아 부모가 다른 것을 섞어 본다.
+parent = next((n for n in b["data"] if n["children"]), None)
+if parent:
+    s, b2 = call("PATCH", "/v1/admin/categories/order",
+                 {"ids": [parent["id"], parent["children"][0]["id"]]})
+    check("상위가 다른 것을 섞으면 400", s == 400, f"{s} {b2}")
+
+s, b = call("PATCH", "/v1/admin/categories/order", {"ids": [roots[0], 999999]})
+check("없는 id 가 섞이면 400", s == 400, f"{s} {b}")
+s, b = call("PATCH", "/v1/admin/categories/order", {"ids": []})
+check("빈 목록은 400", s == 400, f"{s}")
+
+s, b = call("GET", "/v1/admin/pages")
+page_ids = [p["id"] for p in (b["data"] if s == 200 else [])]
+if len(page_ids) >= 2:
+    s, b = call("PATCH", "/v1/admin/pages/order", {"ids": list(reversed(page_ids))})
+    check("페이지 순서 변경 204", s == 204, f"{s} {b}")
+    s, b = call("GET", "/v1/admin/pages")
+    order = {p["id"]: p["sortOrder"] for p in b["data"]}
+    check("페이지 순서가 뒤집힌다",
+          [order[i] for i in reversed(page_ids)] == list(range(len(page_ids))), str(order))
+
+s, b = call("GET", "/v1/admin/projects")
+project_ids = [p["id"] for p in (b["data"] if s == 200 else [])]
+if len(project_ids) >= 2:
+    s, b = call("PATCH", "/v1/admin/projects/order", {"ids": list(reversed(project_ids))})
+    check("프로젝트 순서 변경 204", s == 204, f"{s} {b}")
+
 print("\n=== 통계 / 감사 로그 ===")
 s, b = call("GET", "/v1/admin/stats")
 check("대시보드 통계", s == 200 and b["data"]["posts"]["published"] >= 1, f"{s} {b.get('data',{}).get('posts')}")

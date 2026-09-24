@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { adminApi } from '../lib/api';
 import type { Project } from '../lib/types';
 import SlugField from '../components/SlugField';
+import SortableList from '../components/SortableList';
 import MarkdownEditor from '../components/MarkdownEditor';
 import { Card, EmptyState, ErrorNotice, Field, Loading, PageHeader } from '../components/ui';
 
@@ -28,6 +29,12 @@ export default function Projects() {
     onSuccess: done,
   });
 
+  /* 순서는 화면에서 먼저 바뀐다. 실패하면 다시 받아와 원래대로 돌아간다. */
+  const reorder = useMutation({
+    mutationFn: (ids: number[]) => adminApi.projects.reorder(ids),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
+  });
+
   if (isLoading) return <Loading />;
 
   return (
@@ -48,7 +55,7 @@ export default function Projects() {
         }
       />
 
-      <ErrorNotice error={error ?? remove.error} />
+      <ErrorNotice error={error ?? remove.error ?? reorder.error} />
 
       {(creating || editing) && (
         <ProjectForm
@@ -66,21 +73,32 @@ export default function Projects() {
         <EmptyState message="프로젝트가 없습니다." />
       ) : (
         <Card className="p-0">
-          <ul className="divide-base-300 divide-y">
-            {data.map((project) => (
-              <li key={project.id} className="flex items-center gap-3 px-4 py-3">
+          <p className="text-base-content/50 border-base-300 border-b px-4 py-2 text-xs">
+            끌어서 순서를 바꿉니다. 공개 사이트의 프로젝트 목록에 이 차례로 나옵니다.
+          </p>
+          <SortableList
+            items={data}
+            getId={(project) => project.id}
+            onReorder={(ids) => reorder.mutate(ids)}
+            disabled={data.length < 2}
+            renderItem={(project, handle) => (
+              <div className="border-base-300 flex items-center gap-3 border-b px-4 py-3 last:border-b-0">
+                <span className="w-6 shrink-0 text-center">{handle}</span>
+
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{project.title}</p>
                   {project.summary && (
                     <p className="text-base-content/50 truncate text-xs">{project.summary}</p>
                   )}
                 </div>
+
                 {project.isFeatured && <span className="badge badge-primary badge-sm">대표</span>}
                 <span
                   className={`badge badge-sm ${project.isPublished ? 'badge-success' : 'badge-ghost'}`}
                 >
                   {project.isPublished ? '공개' : '비공개'}
                 </span>
+
                 <button
                   className="btn btn-ghost btn-xs"
                   onClick={() => {
@@ -98,9 +116,9 @@ export default function Projects() {
                 >
                   삭제
                 </button>
-              </li>
-            ))}
-          </ul>
+              </div>
+            )}
+          />
         </Card>
       )}
     </>
@@ -130,7 +148,6 @@ function ProjectForm({
     endedOn: project?.endedOn ?? '',
     isFeatured: project?.isFeatured ?? false,
     isPublished: project?.isPublished ?? false,
-    sortOrder: project?.sortOrder ?? 0,
   });
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) =>
@@ -247,15 +264,6 @@ function ProjectForm({
             className="input input-bordered input-sm w-full"
             value={form.endedOn}
             onChange={(e) => set('endedOn', e.target.value)}
-          />
-        </Field>
-        <Field label="정렬 순서">
-          <input
-            type="number"
-            min={0}
-            className="input input-bordered input-sm w-full"
-            value={form.sortOrder}
-            onChange={(e) => set('sortOrder', Number(e.target.value))}
           />
         </Field>
       </div>

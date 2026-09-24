@@ -1,6 +1,6 @@
-import { createDb, series, tags } from '@namsu/db';
+import { categories, createDb, series, tags } from '@namsu/db';
 import { zValidator } from '@hono/zod-validator';
-import { asc, eq } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
@@ -8,6 +8,7 @@ import type { AppEnv } from '../../env';
 import { audit } from '../../lib/audit';
 import { ApiError } from '../../lib/errors';
 import { created, noContent, ok } from '../../lib/response';
+import { reorderSql } from '../../lib/order';
 import { resolveSlug, uniqueSlug } from '../../lib/slug';
 import {
   createCategory,
@@ -35,6 +36,35 @@ adminTaxonomy.get('/categories', async (c) => {
   const db = createDb(c.env.DB);
   return ok(c, await getCategoryTree(db));
 });
+
+/**
+ * PATCH /v1/admin/categories/order — 형제끼리만 순서를 바꾼다.
+ *
+ * 부모가 다른 것을 섞어 보내면 거부한다. 순서는 형제 안에서만 뜻이 있고,
+ * 부모를 바꾸는 것은 상위 분류 선택으로 하는 일이다.
+ */
+adminTaxonomy.patch(
+  '/categories/order',
+  zValidator('json', z.object({ ids: z.array(z.number().int().positive()).min(1).max(200) })),
+  async (c) => {
+    const db = createDb(c.env.DB);
+    const { ids } = c.req.valid('json');
+
+    const rows = await db
+      .select({ id: categories.id, parentId: categories.parentId })
+      .from(categories)
+      .where(inArray(categories.id, ids));
+
+    if (rows.length !== ids.length) throw ApiError.badRequest('없는 카테고리가 포함되어 있습니다.');
+    const parents = new Set(rows.map((row) => row.parentId));
+    if (parents.size > 1)
+      throw ApiError.badRequest('같은 상위 분류끼리만 순서를 바꿀 수 있습니다.');
+
+    await db.run(reorderSql('categories', ids));
+    await audit(db, c.get('identity'), 'category.reorder', 'category', ids[0]!, { ids });
+    return noContent(c);
+  },
+);
 
 adminTaxonomy.post('/categories', zValidator('json', categoryInput), async (c) => {
   const db = createDb(c.env.DB);

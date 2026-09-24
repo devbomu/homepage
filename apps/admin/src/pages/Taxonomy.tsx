@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { adminApi } from '../lib/api';
 import type { CategoryNode } from '../lib/types';
 import SlugField from '../components/SlugField';
+import SortableList from '../components/SortableList';
 import { Card, EmptyState, ErrorNotice, Field, Loading, PageHeader } from '../components/ui';
 
 type Tab = 'categories' | 'tags' | 'series';
@@ -70,11 +71,17 @@ function Categories() {
     onSuccess: invalidate,
   });
 
+  /* 순서는 화면에서 먼저 바뀐다. 실패하면 다시 받아와 원래대로 돌아간다. */
+  const reorder = useMutation({
+    mutationFn: (ids: number[]) => adminApi.categories.reorder(ids),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
+  });
+
   if (isLoading) return <Loading />;
 
   return (
     <>
-      <ErrorNotice error={error ?? remove.error} />
+      <ErrorNotice error={error ?? remove.error ?? reorder.error} />
 
       <div className="mb-4">
         <button
@@ -101,50 +108,90 @@ function Categories() {
         />
       )}
 
-      {flat.length === 0 ? (
+      {(data ?? []).length === 0 ? (
         <EmptyState message="카테고리가 없습니다." />
       ) : (
         <Card className="p-0">
-          <ul className="divide-base-300 divide-y">
-            {flat.map(({ node, depth }) => (
-              <li key={node.id} className="flex items-center gap-3 px-4 py-2.5">
-                <div className="min-w-0 flex-1" style={{ paddingLeft: `${depth * 1.25}rem` }}>
-                  <span className="text-sm font-medium">
-                    {depth > 0 && <span className="text-base-content/30 mr-1">└</span>}
-                    {node.name}
-                  </span>
-                  <span className="text-base-content/40 ml-2 font-mono text-xs">{node.path}</span>
-                </div>
-                <span className="badge badge-ghost badge-sm shrink-0">{node.postCount}</span>
-                <button
-                  className="btn btn-ghost btn-xs"
-                  onClick={() => {
-                    setEditing(node);
-                    setCreating(false);
-                  }}
-                >
-                  수정
-                </button>
-                <button
-                  className="btn btn-ghost btn-xs text-error"
-                  onClick={() => {
-                    if (
-                      confirm(
-                        `"${node.name}" 을(를) 삭제할까요?\n이 카테고리의 글은 미분류가 됩니다.`,
-                      )
-                    ) {
-                      remove.mutate(node.id);
-                    }
-                  }}
-                >
-                  삭제
-                </button>
-              </li>
-            ))}
-          </ul>
+          <p className="text-base-content/50 border-base-300 border-b px-4 py-2 text-xs">
+            끌어서 순서를 바꿉니다. 같은 단계(형제)끼리만 움직입니다 — 상위를 바꾸려면 수정에서 상위
+            분류를 고르세요.
+          </p>
+          <CategoryLevel
+            nodes={data ?? []}
+            depth={0}
+            onReorder={(ids) => reorder.mutate(ids)}
+            onEdit={(node) => {
+              setEditing(node);
+              setCreating(false);
+            }}
+            onRemove={(node) => {
+              if (confirm(`"${node.name}" 카테고리를 삭제할까요?`)) remove.mutate(node.id);
+            }}
+          />
         </Card>
       )}
     </>
+  );
+}
+
+/**
+ * 한 단계(형제 묶음)를 그리고, 그 아래를 다시 같은 방식으로 그린다.
+ *
+ * 단계마다 SortableList 를 따로 두는 것이 핵심이다. 그래야 다른 단계로는
+ * 끌어 놓을 수 없고, 서버도 "같은 상위끼리만" 이라는 같은 규칙을 지킨다.
+ */
+function CategoryLevel({
+  nodes,
+  depth,
+  onReorder,
+  onEdit,
+  onRemove,
+}: {
+  nodes: CategoryNode[];
+  depth: number;
+  onReorder: (ids: number[]) => void;
+  onEdit: (node: CategoryNode) => void;
+  onRemove: (node: CategoryNode) => void;
+}) {
+  return (
+    <SortableList
+      items={nodes}
+      getId={(node) => node.id}
+      onReorder={onReorder}
+      disabled={nodes.length < 2}
+      renderItem={(node, handle) => (
+        <div className="border-base-300 border-b last:border-b-0">
+          <div className="flex items-center gap-3 px-4 py-2.5">
+            <span className="w-6 shrink-0 text-center" style={{ marginLeft: `${depth * 1.25}rem` }}>
+              {handle}
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <span className="text-sm font-medium">{node.name}</span>
+              <span className="text-base-content/40 ml-2 font-mono text-xs">{node.path}</span>
+            </div>
+
+            <span className="text-base-content/50 text-xs">글 {node.postCount}</span>
+            <button className="btn btn-ghost btn-xs" onClick={() => onEdit(node)}>
+              수정
+            </button>
+            <button className="btn btn-ghost btn-xs text-error" onClick={() => onRemove(node)}>
+              삭제
+            </button>
+          </div>
+
+          {node.children.length > 0 && (
+            <CategoryLevel
+              nodes={node.children}
+              depth={depth + 1}
+              onReorder={onReorder}
+              onEdit={onEdit}
+              onRemove={onRemove}
+            />
+          )}
+        </div>
+      )}
+    />
   );
 }
 
@@ -163,7 +210,6 @@ function CategoryForm({
   const [slug, setSlug] = useState(category?.slug ?? '');
   const [parentId, setParentId] = useState<number | null>(category?.parentId ?? null);
   const [description, setDescription] = useState(category?.description ?? '');
-  const [sortOrder, setSortOrder] = useState(category?.sortOrder ?? 0);
 
   const save = useMutation({
     mutationFn: () => {
@@ -172,7 +218,6 @@ function CategoryForm({
         slug: slug || null,
         parentId,
         description: description || null,
-        sortOrder,
       };
       return category
         ? adminApi.categories.update(category.id, body)
@@ -228,16 +273,6 @@ function CategoryForm({
               </option>
             ))}
           </select>
-        </Field>
-
-        <Field label="정렬 순서">
-          <input
-            type="number"
-            min={0}
-            className="input input-bordered input-sm w-full"
-            value={sortOrder}
-            onChange={(e) => setSortOrder(Number(e.target.value))}
-          />
         </Field>
       </div>
 

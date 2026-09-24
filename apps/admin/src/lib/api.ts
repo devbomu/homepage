@@ -80,6 +80,9 @@ export const adminApi = {
     update: (id: number, body: unknown) =>
       request<unknown>(`/v1/admin/categories/${id}`, { method: 'PATCH', ...json(body) }),
     remove: (id: number) => request<void>(`/v1/admin/categories/${id}`, { method: 'DELETE' }),
+    /** 형제끼리의 순서. 넘긴 차례대로 0, 1, 2... 가 된다. */
+    reorder: (ids: number[]) =>
+      request<void>('/v1/admin/categories/order', { method: 'PATCH', ...json({ ids }) }),
   },
 
   tags: {
@@ -163,6 +166,8 @@ export const adminApi = {
         ...json(body),
       }),
     remove: (id: number) => request<void>(`/v1/admin/pages/${id}`, { method: 'DELETE' }),
+    reorder: (ids: number[]) =>
+      request<void>('/v1/admin/pages/order', { method: 'PATCH', ...json({ ids }) }),
   },
 
   projects: {
@@ -175,6 +180,8 @@ export const adminApi = {
         ...json(body),
       }),
     remove: (id: number) => request<void>(`/v1/admin/projects/${id}`, { method: 'DELETE' }),
+    reorder: (ids: number[]) =>
+      request<void>('/v1/admin/projects/order', { method: 'PATCH', ...json({ ids }) }),
   },
 
   settings: {
