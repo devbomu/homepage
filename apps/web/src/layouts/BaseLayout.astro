@@ -164,14 +164,23 @@ const shareImage = new URL(
           async
           src={`https://www.googletagmanager.com/gtag/js?id=${gaMeasurementId}`}
         ></script>
-        <script is:inline define:vars={{ gaMeasurementId }}>
-          window.dataLayer = window.dataLayer || [];
-          function gtag() {
-            window.dataLayer.push(arguments);
-          }
-          gtag('js', new Date());
-          // IP 를 통째로 넘기지 않는다. 개인 블로그에 필요한 것은 방문 수뿐이다.
-          gtag('config', gaMeasurementId, { anonymize_ip: true });
+        <!--
+          측정 ID 는 본문이 아니라 data 속성으로 넘긴다.
+          define:vars 를 쓰면 설정값이 스크립트 본문에 박혀서 본문이 매번 달라지고,
+          그러면 CSP 해시를 빌드 시점에 고정할 수 없다.
+        -->
+        <script is:inline data-ga-id={gaMeasurementId}>
+          (() => {
+            const id = document.currentScript.dataset.gaId;
+            window.dataLayer = window.dataLayer || [];
+            function gtag() {
+              window.dataLayer.push(arguments);
+            }
+            window.gtag = gtag;
+            gtag('js', new Date());
+            // IP 를 통째로 넘기지 않는다. 개인 블로그에 필요한 것은 방문 수뿐이다.
+            gtag('config', id, { anonymize_ip: true });
+          })();
         </script>
       </Fragment>
     )}

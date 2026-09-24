@@ -62,6 +62,20 @@ export const onRequest = defineMiddleware(async (context, next) => {
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   // 이 사이트를 iframe 에 넣을 이유가 없다.
   headers.set('X-Frame-Options', 'DENY');
+  /*
+   * CSP 본체는 Astro 가 만들어 이 헤더에 이미 넣어 두었다
+   * (astro.config.mjs 의 security.csp). 인라인 스크립트 해시가 빌드마다 바뀌어서
+   * 여기서는 만들 수 없다.
+   *
+   * 그래서 여기서는 절대 set 하지 않는다 — set 하면 Astro 가 만든 정책이
+   * 통째로 날아간다. 실제로 한 번 그렇게 만들어 놓고 CSP 가 사라진 적이 있다.
+   *
+   * 페이지 렌더를 거치지 않는 응답(에러·리디렉션 등)에는 Astro 가 헤더를
+   * 붙이지 않으므로, 그때만 최소한의 프레임 보호를 채워 넣는다.
+   */
+  if (!headers.has('Content-Security-Policy')) {
+    headers.set('Content-Security-Policy', "frame-ancestors 'none'");
+  }
   headers.set(
     'Permissions-Policy',
     'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()',
