@@ -12,20 +12,20 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^14.3.2",
+    "@astrojs/cloudflare": "^14.4.2",
     "@namsu/prose": "workspace:*",
-    "astro": "^7.3.3"
+    "astro": "^7.4.2"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.10",
+    "@astrojs/check": "^0.9.12",
     "@tailwindcss/typography": "^0.5.20",
     "@tailwindcss/vite": "^4.3.3",
-    "@types/node": "^26.6.2",
-    "daisyui": "^5.7.43",
-    "sass-embedded": "^1.104.1",
+    "@types/node": "^26.6.5",
+    "daisyui": "^5.7.50",
+    "sass-embedded": "^1.106.1",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.1",
-    "wrangler": "^4.136.2"
+    "vitest": "^5.0.5",
+    "wrangler": "^4.152.0"
   }
 }
