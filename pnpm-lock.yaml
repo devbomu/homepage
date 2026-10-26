@@ -98,7 +98,7 @@ importers:
     dependencies:
       '@hono/zod-validator':
         specifier: ^0.9.1
-        version: 0.9.1(hono@4.13.8)(zod@4.6.5)
+        version: 0.9.1(hono@4.13.11)(zod@4.6.5)
       '@namsu/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -106,8 +106,8 @@ importers:
         specifier: ^0.45.3
         version: 0.45.3(@cloudflare/workers-types@5.20260922.1)
       hono:
-        specifier: ^4.13.8
-        version: 4.13.8
+        specifier: ^4.13.11
+        version: 4.13.11
       jose:
         specifier: ^6.2.12
         version: 6.2.12
@@ -2101,8 +2101,8 @@ packages:
   hast-util-whitespace@3.0.0:
     resolution: {integrity: sha512-88JUN06ipLwsnv+dVn+OIYOvAuvBMy/Qoi6O7mQHxdPXpjy+Cd6xRkWwux7DKO+4sYILtLBRIKgsdpS2gQc7qw==}
 
-  hono@4.13.8:
-    resolution: {integrity: sha512-/Gng7NfoykZl2pjukW5Z6+8Yxm3BPRf86GTbQnt0SbySkvax4fyL4H3HhY1cCpBGmiW9XDRFzRV+CXK2W8QudQ==}
+  hono@4.13.11:
+    resolution: {integrity: sha512-/SMX/RQNJn7oNmFwH6DtwDqcrzZU2otm1FD6OJe2cWF6cfy/F8hq0XVBv7xW3FTJshRQwuBnXHDq2kNsdZnshg==}
     engines: {node: '>=16.9.0'}
 
   html-escaper@3.0.3:
@@ -3870,9 +3870,9 @@ snapshots:
   '@esbuild/win32-x64@0.28.2':
     optional: true
 
-  '@hono/zod-validator@0.9.1(hono@4.13.8)(zod@4.6.5)':
+  '@hono/zod-validator@0.9.1(hono@4.13.11)(zod@4.6.5)':
     dependencies:
-      hono: 4.13.8
+      hono: 4.13.11
       zod: 4.6.5
 
   '@img/colour@1.1.0': {}
@@ -4851,7 +4851,7 @@ snapshots:
     dependencies:
       '@types/hast': 3.0.5
 
-  hono@4.13.8: {}
+  hono@4.13.11: {}
 
   html-escaper@3.0.3: {}
 
