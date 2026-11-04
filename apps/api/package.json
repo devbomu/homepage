@@ -19,7 +19,7 @@
     "hono": "^4.13.8",
     "jose": "^6.2.12",
     "marked": "^18.0.14",
-    "zod": "^4.6.5"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260922.1",
